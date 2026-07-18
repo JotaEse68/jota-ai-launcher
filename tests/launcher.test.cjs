@@ -39,6 +39,15 @@ test("descubre proyectos reales y omite dependencias", () => {
   }
 });
 
+test("exige la URL exacta del autor y rechaza dominios engañosos", async () => {
+  const { AUTHOR_URL, isExactPublicUrl } = await import("../scripts/site-url-policy.mjs");
+  assert.equal(isExactPublicUrl("https://jsantos.pro/", AUTHOR_URL), true);
+  assert.equal(isExactPublicUrl("https://jsantos.pro.evil.example/", AUTHOR_URL), false);
+  assert.equal(isExactPublicUrl("https://evil.example/?next=https://jsantos.pro/", AUTHOR_URL), false);
+  assert.equal(isExactPublicUrl("https://jsantos.pro@evil.example/", AUTHOR_URL), false);
+  assert.equal(isExactPublicUrl("javascript:https://jsantos.pro/", AUTHOR_URL), false);
+});
+
 test("resume README, stack, repositorio y despliegue, e incluye plugins locales", () => {
   const root = mkdtempSync(join(tmpdir(), "jota-project-memory-"));
   try {

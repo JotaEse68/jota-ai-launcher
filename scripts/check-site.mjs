@@ -1,6 +1,7 @@
 import { existsSync, readFileSync, statSync } from "node:fs";
 import { dirname, relative, resolve, sep } from "node:path";
 import { fileURLToPath } from "node:url";
+import { AUTHOR_URL, isExactPublicUrl } from "./site-url-policy.mjs";
 
 const projectRoot = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const siteRoot = resolve(projectRoot, "site");
@@ -18,6 +19,10 @@ function relativeLabel(path) {
   return relative(projectRoot, path).split(sep).join("/");
 }
 
+function attributeUrls(html) {
+  return [...html.matchAll(/(?:href|src)="([^"]+)"/g)].map((match) => match[1]);
+}
+
 for (const page of pages) {
   if (!existsSync(page.path)) {
     fail(`${relativeLabel(page.path)} does not exist`);
@@ -26,9 +31,9 @@ for (const page of pages) {
 
   const html = readFileSync(page.path, "utf8");
   const label = relativeLabel(page.path);
+  const references = attributeUrls(html);
   if (!html.includes(`<html lang="${page.language}">`)) fail(`${label} has the wrong language`);
-  if (!html.includes("https://jsantos.pro/")) fail(`${label} is missing the canonical author URL`);
-  if (html.includes("eee.jsantos.pro")) fail(`${label} contains the obsolete author URL`);
+  if (!references.some((reference) => isExactPublicUrl(reference, AUTHOR_URL))) fail(`${label} is missing the exact canonical author URL`);
   if (!html.includes('rel="canonical"')) fail(`${label} is missing its canonical URL`);
   if (!html.includes('hreflang="es"') || !html.includes('hreflang="en"')) fail(`${label} is missing bilingual alternate links`);
   if (!html.includes("application/ld+json")) fail(`${label} is missing structured data`);
@@ -37,8 +42,7 @@ for (const page of pages) {
   const duplicateIds = ids.filter((id, index) => ids.indexOf(id) !== index);
   if (duplicateIds.length) fail(`${label} contains duplicate IDs: ${[...new Set(duplicateIds)].join(", ")}`);
 
-  for (const match of html.matchAll(/(?:href|src)="([^"]+)"/g)) {
-    const reference = match[1];
+  for (const reference of references) {
     if (/^(?:https?:|mailto:|data:)/.test(reference)) continue;
     if (reference.startsWith("#")) {
       if (!ids.includes(reference.slice(1))) fail(`${label} points to missing section ${reference}`);
