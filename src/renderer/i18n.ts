@@ -10,7 +10,7 @@ export const LANGUAGES: Array<{ code: Language; label: string }> = [
 ];
 
 const es = {
-  navLaunch: "Lanzar", navAccounts: "Cuentas", navInventory: "Inventario", navUpdates: "Actualizaciones", navHelp: "Guía y ajustes",
+  navLaunch: "Lanzar", navProjects: "Proyectos", navAccounts: "Cuentas", navInventory: "Inventario", navUpdates: "Actualizaciones", navHelp: "Guía y ajustes",
   ready: "Listo", notInstalled: "No instalado", plugins: "plugins", skills: "skills", connectedAccount: "Cuenta conectada", connectMissing: "Falta conectar",
   start: "Iniciar", resume: "Continuar sesión", install: "Instalar",
   launchEyebrow: "Bahía de lanzamiento", launchTitle1: "Elige el proyecto.", launchTitle2: "Enciende el agente.", launchIntro: "Tres herramientas, una sola puerta de entrada y ninguna credencial compartida.",
@@ -26,6 +26,7 @@ const es = {
   guideEyebrow: "Guía y ajustes", guideTitle: "Una puerta, tres maneras de trabajar.", howToStart: "Cómo empezar", stepProject: "Elige un proyecto", stepProjectText: "Selecciona la carpeta que contiene tu código.", stepAccount: "Conecta tu cuenta", stepAccountText: "El proveedor abre su propio acceso seguro.", stepAgent: "Inicia el agente", stepAgentText: "La terminal se abre en la carpeta correcta.",
   preferences: "Preferencias", checkTools: "Comprobar herramientas", checkToolsText: "Busca nuevas versiones al iniciar", updateLauncher: "Actualizar el launcher", updateLauncherText: "Comprueba el canal de versiones", startSystem: "Iniciar con el sistema", startSystemText: "Abre el panel al entrar en tu cuenta",
   missingTool: "¿Falta alguna herramienta?", officialRequirements: "Consulta su instalación y requisitos oficiales.", localPanel: "Panel local", readingSystem: "Leyendo el sistema…", shellReady: "{shell} listo", refreshStatus: "Actualizar estado", language: "Idioma", settingsSaved: "Preferencias guardadas.", diagnosticError: "No se pudo completar el diagnóstico.",
+  projectsEyebrow: "Biblioteca local", projectsTitle: "Tus proyectos, listos para abrir.", projectsIntro: "Detectamos carpetas con código y las convertimos en accesos directos para tus agentes.", addProjectFolder: "Añadir carpeta", scanProjects: "Buscar proyectos", scanningProjects: "Buscando…", useProject: "Usar proyecto", openFolder: "Abrir carpeta", projectSelected: "Proyecto seleccionado: {name}", projectFolderOpened: "Carpeta abierta.", noProjectsTitle: "Todavía no encontramos proyectos.", noProjectsText: "Añade la carpeta donde guardas tu código y buscaremos proyectos dentro.", detectedProjects: "{count} proyectos detectados", searchLocations: "Carpetas de búsqueda", automaticLocations: "Ubicaciones habituales incluidas", removeRoot: "Quitar", folderOpenError: "No se pudo abrir la carpeta.",
   codexSubtitle: "Agente de OpenAI", claudeSubtitle: "Agente de Anthropic", opencodeSubtitle: "Agente abierto multimodelo",
 };
 
@@ -33,7 +34,7 @@ type TranslationKey = keyof typeof es;
 type Dictionary = Record<TranslationKey, string>;
 
 const en: Dictionary = {
-  navLaunch: "Launch", navAccounts: "Accounts", navInventory: "Inventory", navUpdates: "Updates", navHelp: "Guide & settings",
+  navLaunch: "Launch", navProjects: "Projects", navAccounts: "Accounts", navInventory: "Inventory", navUpdates: "Updates", navHelp: "Guide & settings",
   ready: "Ready", notInstalled: "Not installed", plugins: "plugins", skills: "skills", connectedAccount: "Account connected", connectMissing: "Connect account",
   start: "Start", resume: "Resume session", install: "Install",
   launchEyebrow: "Launch bay", launchTitle1: "Choose the project.", launchTitle2: "Power up the agent.", launchIntro: "Three tools, one gateway, and no shared credentials.",
@@ -49,11 +50,12 @@ const en: Dictionary = {
   guideEyebrow: "Guide & settings", guideTitle: "One gateway, three ways to work.", howToStart: "Getting started", stepProject: "Choose a project", stepProjectText: "Select the folder that contains your code.", stepAccount: "Connect your account", stepAccountText: "The provider opens its own secure sign-in.", stepAgent: "Start the agent", stepAgentText: "The terminal opens in the correct folder.",
   preferences: "Preferences", checkTools: "Check tools", checkToolsText: "Look for new versions at startup", updateLauncher: "Update the launcher", updateLauncherText: "Check the release channel", startSystem: "Start with the system", startSystemText: "Open the panel when you sign in",
   missingTool: "Missing a tool?", officialRequirements: "View its official installation guide and requirements.", localPanel: "Local panel", readingSystem: "Reading the system…", shellReady: "{shell} ready", refreshStatus: "Refresh status", language: "Language", settingsSaved: "Preferences saved.", diagnosticError: "The diagnostic could not be completed.",
+  projectsEyebrow: "Local library", projectsTitle: "Your projects, ready to open.", projectsIntro: "We detect folders with code and turn them into shortcuts for your agents.", addProjectFolder: "Add folder", scanProjects: "Find projects", scanningProjects: "Searching…", useProject: "Use project", openFolder: "Open folder", projectSelected: "Project selected: {name}", projectFolderOpened: "Folder opened.", noProjectsTitle: "No projects found yet.", noProjectsText: "Add the folder where you keep your code and we will find projects inside it.", detectedProjects: "{count} projects detected", searchLocations: "Search folders", automaticLocations: "Common locations included", removeRoot: "Remove", folderOpenError: "The folder could not be opened.",
   codexSubtitle: "OpenAI agent", claudeSubtitle: "Anthropic agent", opencodeSubtitle: "Open multimodel agent",
 };
 
 const fr: Dictionary = {
-  navLaunch: "Lancer", navAccounts: "Comptes", navInventory: "Inventaire", navUpdates: "Mises à jour", navHelp: "Guide et réglages",
+  navLaunch: "Lancer", navProjects: "Projets", navAccounts: "Comptes", navInventory: "Inventaire", navUpdates: "Mises à jour", navHelp: "Guide et réglages",
   ready: "Prêt", notInstalled: "Non installé", plugins: "plugins", skills: "skills", connectedAccount: "Compte connecté", connectMissing: "Connexion requise",
   start: "Démarrer", resume: "Reprendre la session", install: "Installer",
   launchEyebrow: "Baie de lancement", launchTitle1: "Choisissez le projet.", launchTitle2: "Activez l’agent.", launchIntro: "Trois outils, une seule porte d’entrée et aucun identifiant partagé.",
@@ -69,11 +71,12 @@ const fr: Dictionary = {
   guideEyebrow: "Guide et réglages", guideTitle: "Une porte, trois façons de travailler.", howToStart: "Bien démarrer", stepProject: "Choisissez un projet", stepProjectText: "Sélectionnez le dossier contenant votre code.", stepAccount: "Connectez votre compte", stepAccountText: "Le fournisseur ouvre sa propre connexion sécurisée.", stepAgent: "Démarrez l’agent", stepAgentText: "Le terminal s’ouvre dans le bon dossier.",
   preferences: "Préférences", checkTools: "Vérifier les outils", checkToolsText: "Rechercher de nouvelles versions au démarrage", updateLauncher: "Mettre à jour le launcher", updateLauncherText: "Vérifier le canal des versions", startSystem: "Démarrer avec le système", startSystemText: "Ouvrir le panneau à la connexion",
   missingTool: "Un outil vous manque ?", officialRequirements: "Consultez son installation et ses prérequis officiels.", localPanel: "Panneau local", readingSystem: "Lecture du système…", shellReady: "{shell} prêt", refreshStatus: "Actualiser l’état", language: "Langue", settingsSaved: "Préférences enregistrées.", diagnosticError: "Le diagnostic n’a pas pu être terminé.",
+  projectsEyebrow: "Bibliothèque locale", projectsTitle: "Vos projets, prêts à s’ouvrir.", projectsIntro: "Nous détectons les dossiers de code et les transformons en raccourcis pour vos agents.", addProjectFolder: "Ajouter un dossier", scanProjects: "Rechercher des projets", scanningProjects: "Recherche…", useProject: "Utiliser le projet", openFolder: "Ouvrir le dossier", projectSelected: "Projet sélectionné : {name}", projectFolderOpened: "Dossier ouvert.", noProjectsTitle: "Aucun projet trouvé pour le moment.", noProjectsText: "Ajoutez le dossier où se trouve votre code et nous rechercherons les projets qu’il contient.", detectedProjects: "{count} projets détectés", searchLocations: "Dossiers de recherche", automaticLocations: "Emplacements habituels inclus", removeRoot: "Retirer", folderOpenError: "Impossible d’ouvrir le dossier.",
   codexSubtitle: "Agent d’OpenAI", claudeSubtitle: "Agent d’Anthropic", opencodeSubtitle: "Agent ouvert multimodèle",
 };
 
 const pt: Dictionary = {
-  navLaunch: "Iniciar", navAccounts: "Contas", navInventory: "Inventário", navUpdates: "Atualizações", navHelp: "Guia e definições",
+  navLaunch: "Iniciar", navProjects: "Projetos", navAccounts: "Contas", navInventory: "Inventário", navUpdates: "Atualizações", navHelp: "Guia e definições",
   ready: "Pronto", notInstalled: "Não instalado", plugins: "plugins", skills: "skills", connectedAccount: "Conta ligada", connectMissing: "Falta ligar",
   start: "Iniciar", resume: "Continuar sessão", install: "Instalar",
   launchEyebrow: "Baía de lançamento", launchTitle1: "Escolha o projeto.", launchTitle2: "Ative o agente.", launchIntro: "Três ferramentas, uma única entrada e nenhuma credencial partilhada.",
@@ -89,11 +92,12 @@ const pt: Dictionary = {
   guideEyebrow: "Guia e definições", guideTitle: "Uma entrada, três formas de trabalhar.", howToStart: "Como começar", stepProject: "Escolha um projeto", stepProjectText: "Selecione a pasta que contém o seu código.", stepAccount: "Ligue a sua conta", stepAccountText: "O fornecedor abre o seu próprio acesso seguro.", stepAgent: "Inicie o agente", stepAgentText: "O terminal abre na pasta correta.",
   preferences: "Preferências", checkTools: "Verificar ferramentas", checkToolsText: "Procurar novas versões ao iniciar", updateLauncher: "Atualizar o launcher", updateLauncherText: "Verificar o canal de versões", startSystem: "Iniciar com o sistema", startSystemText: "Abrir o painel ao entrar na conta",
   missingTool: "Falta alguma ferramenta?", officialRequirements: "Consulte a instalação e os requisitos oficiais.", localPanel: "Painel local", readingSystem: "A ler o sistema…", shellReady: "{shell} pronto", refreshStatus: "Atualizar estado", language: "Idioma", settingsSaved: "Preferências guardadas.", diagnosticError: "Não foi possível concluir o diagnóstico.",
+  projectsEyebrow: "Biblioteca local", projectsTitle: "Os seus projetos, prontos a abrir.", projectsIntro: "Detetamos pastas com código e transformamo-las em atalhos para os seus agentes.", addProjectFolder: "Adicionar pasta", scanProjects: "Procurar projetos", scanningProjects: "A procurar…", useProject: "Usar projeto", openFolder: "Abrir pasta", projectSelected: "Projeto selecionado: {name}", projectFolderOpened: "Pasta aberta.", noProjectsTitle: "Ainda não encontrámos projetos.", noProjectsText: "Adicione a pasta onde guarda o código e procuraremos projetos dentro dela.", detectedProjects: "{count} projetos detetados", searchLocations: "Pastas de pesquisa", automaticLocations: "Localizações habituais incluídas", removeRoot: "Remover", folderOpenError: "Não foi possível abrir a pasta.",
   codexSubtitle: "Agente da OpenAI", claudeSubtitle: "Agente da Anthropic", opencodeSubtitle: "Agente aberto multimodelo",
 };
 
 const it: Dictionary = {
-  navLaunch: "Avvia", navAccounts: "Account", navInventory: "Inventario", navUpdates: "Aggiornamenti", navHelp: "Guida e impostazioni",
+  navLaunch: "Avvia", navProjects: "Progetti", navAccounts: "Account", navInventory: "Inventario", navUpdates: "Aggiornamenti", navHelp: "Guida e impostazioni",
   ready: "Pronto", notInstalled: "Non installato", plugins: "plugin", skills: "skill", connectedAccount: "Account collegato", connectMissing: "Da collegare",
   start: "Avvia", resume: "Continua sessione", install: "Installa",
   launchEyebrow: "Baia di lancio", launchTitle1: "Scegli il progetto.", launchTitle2: "Attiva l’agente.", launchIntro: "Tre strumenti, un solo punto di accesso e nessuna credenziale condivisa.",
@@ -109,11 +113,12 @@ const it: Dictionary = {
   guideEyebrow: "Guida e impostazioni", guideTitle: "Un accesso, tre modi di lavorare.", howToStart: "Come iniziare", stepProject: "Scegli un progetto", stepProjectText: "Seleziona la cartella che contiene il codice.", stepAccount: "Collega il tuo account", stepAccountText: "Il provider apre il proprio accesso sicuro.", stepAgent: "Avvia l’agente", stepAgentText: "Il terminale si apre nella cartella corretta.",
   preferences: "Preferenze", checkTools: "Controlla strumenti", checkToolsText: "Cerca nuove versioni all’avvio", updateLauncher: "Aggiorna il launcher", updateLauncherText: "Controlla il canale delle versioni", startSystem: "Avvia con il sistema", startSystemText: "Apri il pannello all’accesso",
   missingTool: "Manca uno strumento?", officialRequirements: "Consulta l’installazione e i requisiti ufficiali.", localPanel: "Pannello locale", readingSystem: "Lettura del sistema…", shellReady: "{shell} pronto", refreshStatus: "Aggiorna stato", language: "Lingua", settingsSaved: "Preferenze salvate.", diagnosticError: "Impossibile completare la diagnostica.",
+  projectsEyebrow: "Libreria locale", projectsTitle: "I tuoi progetti, pronti da aprire.", projectsIntro: "Rileviamo le cartelle con codice e le trasformiamo in collegamenti per i tuoi agenti.", addProjectFolder: "Aggiungi cartella", scanProjects: "Cerca progetti", scanningProjects: "Ricerca…", useProject: "Usa progetto", openFolder: "Apri cartella", projectSelected: "Progetto selezionato: {name}", projectFolderOpened: "Cartella aperta.", noProjectsTitle: "Nessun progetto trovato.", noProjectsText: "Aggiungi la cartella in cui conservi il codice e cercheremo i progetti al suo interno.", detectedProjects: "{count} progetti rilevati", searchLocations: "Cartelle di ricerca", automaticLocations: "Posizioni abituali incluse", removeRoot: "Rimuovi", folderOpenError: "Impossibile aprire la cartella.",
   codexSubtitle: "Agente OpenAI", claudeSubtitle: "Agente Anthropic", opencodeSubtitle: "Agente aperto multimodello",
 };
 
 const de: Dictionary = {
-  navLaunch: "Starten", navAccounts: "Konten", navInventory: "Inventar", navUpdates: "Aktualisierungen", navHelp: "Hilfe & Einstellungen",
+  navLaunch: "Starten", navProjects: "Projekte", navAccounts: "Konten", navInventory: "Inventar", navUpdates: "Aktualisierungen", navHelp: "Hilfe & Einstellungen",
   ready: "Bereit", notInstalled: "Nicht installiert", plugins: "Plugins", skills: "Skills", connectedAccount: "Konto verbunden", connectMissing: "Verbindung fehlt",
   start: "Starten", resume: "Sitzung fortsetzen", install: "Installieren",
   launchEyebrow: "Startbereich", launchTitle1: "Projekt auswählen.", launchTitle2: "Agenten starten.", launchIntro: "Drei Werkzeuge, ein Zugang und keine gemeinsam genutzten Anmeldedaten.",
@@ -129,6 +134,7 @@ const de: Dictionary = {
   guideEyebrow: "Hilfe & Einstellungen", guideTitle: "Ein Zugang, drei Arbeitsweisen.", howToStart: "Erste Schritte", stepProject: "Projekt auswählen", stepProjectText: "Wähle den Ordner aus, der deinen Code enthält.", stepAccount: "Konto verbinden", stepAccountText: "Der Anbieter öffnet seine eigene sichere Anmeldung.", stepAgent: "Agenten starten", stepAgentText: "Das Terminal öffnet sich im richtigen Ordner.",
   preferences: "Einstellungen", checkTools: "Werkzeuge prüfen", checkToolsText: "Beim Start nach neuen Versionen suchen", updateLauncher: "Launcher aktualisieren", updateLauncherText: "Versionskanal prüfen", startSystem: "Mit dem System starten", startSystemText: "Panel bei der Anmeldung öffnen",
   missingTool: "Fehlt ein Werkzeug?", officialRequirements: "Offizielle Installation und Anforderungen ansehen.", localPanel: "Lokales Panel", readingSystem: "System wird gelesen…", shellReady: "{shell} bereit", refreshStatus: "Status aktualisieren", language: "Sprache", settingsSaved: "Einstellungen gespeichert.", diagnosticError: "Die Diagnose konnte nicht abgeschlossen werden.",
+  projectsEyebrow: "Lokale Bibliothek", projectsTitle: "Deine Projekte, sofort startklar.", projectsIntro: "Wir erkennen Code-Ordner und machen sie zu direkten Zugängen für deine Agenten.", addProjectFolder: "Ordner hinzufügen", scanProjects: "Projekte suchen", scanningProjects: "Suche…", useProject: "Projekt verwenden", openFolder: "Ordner öffnen", projectSelected: "Projekt ausgewählt: {name}", projectFolderOpened: "Ordner geöffnet.", noProjectsTitle: "Noch keine Projekte gefunden.", noProjectsText: "Füge den Ordner hinzu, in dem dein Code liegt; wir suchen darin nach Projekten.", detectedProjects: "{count} Projekte erkannt", searchLocations: "Suchordner", automaticLocations: "Übliche Speicherorte enthalten", removeRoot: "Entfernen", folderOpenError: "Der Ordner konnte nicht geöffnet werden.",
   codexSubtitle: "Agent von OpenAI", claudeSubtitle: "Agent von Anthropic", opencodeSubtitle: "Offener Multimodell-Agent",
 };
 

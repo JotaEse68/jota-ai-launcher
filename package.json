@@ -1,6 +1,6 @@
 {
   "name": "jota-ai-launcher",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "description": "Multilingual desktop launcher for Codex, Claude Code and OpenCode on Windows and macOS.",
   "main": "dist/main/main.js",
   "author": "Jota",
@@ -59,7 +59,7 @@
       "package.json"
     ],
     "win": {
-      "icon": "build/icon.png",
+      "icon": "build/icon.ico",
       "artifactName": "Jota-AI-Launcher-Setup-${version}.${ext}",
       "target": [
         {

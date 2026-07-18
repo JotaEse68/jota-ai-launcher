@@ -8,6 +8,17 @@ Aplicación de escritorio multilingüe para Windows y macOS que detecta, inicia 
 
 ![Panel principal de Jota AI Launcher](./launcher-home.png)
 
+## Biblioteca de proyectos
+
+La sección **Proyectos** detecta automáticamente carpetas de desarrollo habituales y muestra cada proyecto como una tarjeta clicable. Reconoce JavaScript/TypeScript, Python, Rust, Go, .NET, PHP, Ruby y repositorios Git mediante sus archivos reales de proyecto.
+
+- Pulsa **Usar proyecto** para convertirlo en el proyecto activo del launcher.
+- Pulsa **Abrir carpeta** para verlo en el Explorador de Windows o Finder.
+- Usa **Añadir carpeta** para incluir cualquier otra ubicación donde guardes código.
+- Las carpetas pesadas o generadas, como `node_modules`, `dist`, `build` y `.git`, no se recorren.
+
+![Biblioteca visual de proyectos](./projects-library.png)
+
 ## Privacidad
 
 El instalador no contiene cuentas, contraseñas ni claves API. Cada CLI gestiona sus credenciales en el perfil local del sistema. Para un ordenador compartido, se recomienda una cuenta del sistema por persona.
