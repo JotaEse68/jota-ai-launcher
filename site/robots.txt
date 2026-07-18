@@ -1,0 +1,4 @@
+User-agent: *
+Allow: /
+
+Sitemap: https://jotaese68.github.io/jota-ai-launcher/sitemap.xml

@@ -15,7 +15,7 @@
 
 A local, multilingual, open-source desktop application for Windows and macOS.
 
-[Download the latest release](https://github.com/JotaEse68/jota-ai-launcher/releases/latest) · [Verify a download](#verify-a-downloaded-file) · [Report a vulnerability](https://github.com/JotaEse68/jota-ai-launcher/security/advisories/new)
+[Discover Jota AI Launcher](https://jotaese68.github.io/jota-ai-launcher/en/) · [Download the latest release](https://github.com/JotaEse68/jota-ai-launcher/releases/latest) · [Verify a download](#verify-a-downloaded-file) · [Report a vulnerability](https://github.com/JotaEse68/jota-ai-launcher/security/advisories/new)
 
 </div>
 
@@ -30,7 +30,8 @@ The launcher does not replace the agents or proxy communication between them and
 ### Highlights
 
 - One interface for Codex, Claude Code, and OpenCode.
-- Visual project library with clickable cards.
+- Visual library that summarizes each project's purpose, stack, GitHub repository, and deployment.
+- Local app, plugin, and folder detection even when no repository exists.
 - Automatic detection of versions, accounts, plugins, skills, and MCP servers.
 - Installation and updates through each CLI's official commands.
 - Spanish, English, French, Portuguese, Italian, and German.
@@ -80,7 +81,7 @@ The terminal opens inside the selected project. Each agent retains its own permi
 
 ## Visual project library
 
-The **Projects** section scans common development locations and turns detected code folders into clickable cards.
+The **Projects** section acts as a local memory for your work. It scans common development locations, reads the first useful description from each README, and turns every folder into a card that reminds you what it did, how it was built, and where it was deployed.
 
 ![Visual project library](./projects-library.png)
 
@@ -88,6 +89,7 @@ The **Projects** section scans common development locations and turns detected c
 
 - **Use project:** makes the folder the active project and returns to the launch dashboard.
 - **Open folder:** opens the project in Windows Explorer or Finder.
+- **GitHub:** opens the repository when a valid remote is detected.
 - **Add folder:** includes another root folder where you keep projects.
 - **Remove folder:** stops scanning a manually added location.
 - **Find projects:** scans configured folders again.
@@ -105,7 +107,9 @@ The **Projects** section scans common development locations and turns detected c
 | Ruby | `Gemfile` |
 | Other repositories | `.git` |
 
-The scan skips dependencies and generated output such as `node_modules`, `dist`, `build`, `release`, `.next`, `.nuxt`, `.venv`, `vendor`, `target`, `coverage`, and `.git`. Detected project names and paths stay on the computer.
+Cards also recognize common frameworks and services: React, Next.js, Vue, Nuxt, Svelte, Astro, Electron, Vite, Tailwind CSS, Supabase, Firebase, WordPress, Vercel, Netlify, Render, Railway, Cloudflare, and Docker. A project without Git still appears as a **Local folder** when it contains a README, code, a plugin, or recognizable design files.
+
+The scan skips dependencies and generated output such as `node_modules`, `dist`, `build`, `release`, `.next`, `.nuxt`, `.venv`, `vendor`, `target`, `coverage`, and `.git`. To build each card it reads only bounded local metadata: README files, manifests, file names, and the Git remote. None of this information leaves the computer.
 
 ## Supported tools
 
@@ -339,7 +343,7 @@ That depends on the tool and provider you choose. The launcher itself neither re
 
 ### Does it read my project source code?
 
-It does not analyze source-code contents. Project discovery checks only marker filenames and folder paths.
+It does not analyze or index source code. To build each card it reads file names, manifests, the first useful README description, WordPress plugin or theme headers, and the GitHub remote URL. Everything is processed locally and is never sent to the author.
 
 ### Does it work offline?
 

@@ -34,5 +34,8 @@ jobs:
       - name: Typecheck and build
         run: npm run build
 
+      - name: Validate bilingual landing
+        run: npm run site:check
+
       - name: Audit all dependencies
         run: npm audit --audit-level=high

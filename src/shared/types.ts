@@ -9,7 +9,7 @@ export interface InventoryItem {
   source?: string;
 }
 
-export type ProjectKind = "javascript" | "python" | "rust" | "go" | "dotnet" | "php" | "ruby" | "git";
+export type ProjectKind = "javascript" | "python" | "rust" | "go" | "dotnet" | "php" | "ruby" | "git" | "folder";
 
 export interface ProjectInfo {
   name: string;
@@ -18,6 +18,11 @@ export interface ProjectInfo {
   kind: ProjectKind;
   marker: string;
   updatedAt: string;
+  description?: string;
+  technologies: string[];
+  services: string[];
+  repositoryUrl?: string;
+  source: "manifest" | "git" | "folder";
 }
 
 export interface ToolStatus {
