@@ -197,20 +197,20 @@ No single scan can guarantee that an application is malware-free. Releases there
 Windows PowerShell:
 
 ```powershell
-Get-FileHash -Algorithm SHA256 ".\Jota-AI-Launcher-Setup-0.3.1.exe"
+Get-FileHash -Algorithm SHA256 ".\Jota-AI-Launcher-Setup-0.4.0.exe"
 Get-Content ".\SHA256SUMS.txt"
-gh attestation verify ".\Jota-AI-Launcher-Setup-0.3.1.exe" --repo JotaEse68/jota-ai-launcher
+gh attestation verify ".\Jota-AI-Launcher-Setup-0.4.0.exe" --repo JotaEse68/jota-ai-launcher
 ```
 
 macOS Terminal:
 
 ```shell
-shasum -a 256 Jota-AI-Launcher-0.3.1-universal.dmg
+shasum -a 256 Jota-AI-Launcher-0.4.0-universal.dmg
 cat SHA256SUMS.txt
-gh attestation verify Jota-AI-Launcher-0.3.1-universal.dmg --repo JotaEse68/jota-ai-launcher
+gh attestation verify Jota-AI-Launcher-0.4.0-universal.dmg --repo JotaEse68/jota-ai-launcher
 ```
 
-The calculated value must match `SHA256SUMS.txt`. An attestation proves where a file came from; it does not replace a security review. See the [download verification guide](./docs/VERIFICAR.md), the [version 0.3.1 security review](./docs/SECURITY-REVIEW.en.md), and the [security policy](./SECURITY.md) for more details.
+The calculated value must match `SHA256SUMS.txt`. An attestation proves where a file came from; it does not replace a security review. See the [download verification guide](./docs/VERIFICAR.md), the [version 0.4.0 security review](./docs/SECURITY-REVIEW.en.md), and the [security policy](./SECURITY.md) for more details.
 
 ## Architecture
 

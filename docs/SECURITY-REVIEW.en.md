@@ -1,10 +1,10 @@
-# Security review · Jota AI Launcher 0.3.1
+# Security review · Jota AI Launcher 0.4.0
 
 [Español](./SECURITY-REVIEW.md) · [English](./SECURITY-REVIEW.en.md)
 
 **Date:** July 18, 2026
 
-**Scope:** source code, Electron configuration, preload/IPC bridge, local paths and commands, dependencies, build, and release.
+**Scope:** source code, Electron configuration, preload/IPC bridge, project library, bilingual landing, local paths and commands, dependencies, build, and release.
 
 **Method:** manual static review, automated tests, strict TypeScript, npm audit, secret scanning, and GitHub CodeQL analysis.
 
@@ -23,11 +23,13 @@ This review improves confidence but does not certify that the software is invuln
 | CSP | scripts, images, connections, forms, and objects explicitly restricted |
 | IPC | accepts messages only from the main window; tools and actions use allowlists |
 | Paths | normalized settings; folders approved through native dialogs or scans of stored roots |
+| Library | bounded README/manifest reads; symbolic links cannot escape approved roots |
 | Commands | fixed internal commands; renderer-provided paths are not interpolated into commands |
 | Links | HTTPS only and explicitly allowed domains |
 | Credentials | no API-key forms and no bundled secrets |
 | Releases | checksums, CycloneDX SBOM, and build provenance attestation |
 | CI | actions pinned by commit, per-job permissions, npm audit, and CodeQL |
+| Landing | author URLs normalized and compared exactly; local links and assets validated |
 
 ## Remediations applied
 
@@ -40,17 +42,19 @@ This review improves confidence but does not certify that the software is invuln
 7. Pinned GitHub Actions by SHA and reduced workflow permissions per job.
 8. Expanded dependency auditing and added CodeQL on changes and on a weekly schedule.
 9. Added a regression test that rejects untrusted settings and paths.
+10. Limited project-memory metadata reads and blocked symbolic-link traversal outside approved folders.
+11. Changed landing validation to parse real URLs and reject deceptive subdomains, embedded credentials, misleading query strings, and disallowed schemes.
 
 ## Validation evidence
 
 | Check | Result on 2026-07-18 |
 |---|---|
 | `npm run build` | passed, including strict TypeScript and production build |
-| `npm test` | 4 of 4 tests passed |
+| `npm test` | 6 of 6 tests passed |
 | `npm audit --audit-level=high` | 0 known vulnerabilities |
 | Credential-pattern scan | no matches |
-| YAML workflow validation | 3 of 3 passed |
-| Microsoft Defender scan of the local installer | no threats found |
+| Windows and macOS CI | passed in GitHub Actions |
+| CodeQL | no open critical or high alerts in the reviewed version |
 
 CodeQL runs on GitHub for each push and pull request; its public status is shown in the README. The local installer and the GitHub-built installer are not necessarily identical, so users must always verify the downloaded release's own checksum.
 

@@ -197,20 +197,20 @@ No existe una comprobación única que garantice que un programa está libre de 
 Windows PowerShell:
 
 ```powershell
-Get-FileHash -Algorithm SHA256 ".\Jota-AI-Launcher-Setup-0.3.1.exe"
+Get-FileHash -Algorithm SHA256 ".\Jota-AI-Launcher-Setup-0.4.0.exe"
 Get-Content ".\SHA256SUMS.txt"
-gh attestation verify ".\Jota-AI-Launcher-Setup-0.3.1.exe" --repo JotaEse68/jota-ai-launcher
+gh attestation verify ".\Jota-AI-Launcher-Setup-0.4.0.exe" --repo JotaEse68/jota-ai-launcher
 ```
 
 macOS Terminal:
 
 ```shell
-shasum -a 256 Jota-AI-Launcher-0.3.1-universal.dmg
+shasum -a 256 Jota-AI-Launcher-0.4.0-universal.dmg
 cat SHA256SUMS.txt
-gh attestation verify Jota-AI-Launcher-0.3.1-universal.dmg --repo JotaEse68/jota-ai-launcher
+gh attestation verify Jota-AI-Launcher-0.4.0-universal.dmg --repo JotaEse68/jota-ai-launcher
 ```
 
-Los hashes deben coincidir con `SHA256SUMS.txt`. La atestación demuestra la procedencia del archivo, pero no sustituye una revisión de seguridad. Encontrarás más instrucciones en [Cómo verificar una descarga](./docs/VERIFICAR.md), el [informe de revisión de seguridad de la versión 0.3.1](./docs/SECURITY-REVIEW.md) y el modelo de seguridad en [SECURITY.md](./SECURITY.md).
+Los hashes deben coincidir con `SHA256SUMS.txt`. La atestación demuestra la procedencia del archivo, pero no sustituye una revisión de seguridad. Encontrarás más instrucciones en [Cómo verificar una descarga](./docs/VERIFICAR.md), el [informe de revisión de seguridad de la versión 0.4.0](./docs/SECURITY-REVIEW.md) y el modelo de seguridad en [SECURITY.md](./SECURITY.md).
 
 ## Arquitectura
 
