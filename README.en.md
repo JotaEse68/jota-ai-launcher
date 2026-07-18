@@ -15,7 +15,9 @@
 
 A local, multilingual, open-source desktop application for Windows and macOS.
 
-[Discover Jota AI Launcher](https://jotaese68.github.io/jota-ai-launcher/en/) · [Download the latest release](https://github.com/JotaEse68/jota-ai-launcher/releases/latest) · [Verify a download](#verify-a-downloaded-file) · [Report a vulnerability](https://github.com/JotaEse68/jota-ai-launcher/security/advisories/new)
+[⬇ Download for Windows (.exe)](https://github.com/JotaEse68/jota-ai-launcher/releases/download/v0.4.0/Jota-AI-Launcher-Setup-0.4.0.exe) · [⬇ Download for macOS (.dmg)](https://github.com/JotaEse68/jota-ai-launcher/releases/download/v0.4.0/Jota-AI-Launcher-0.4.0-universal.dmg)
+
+[Discover Jota AI Launcher](https://jotaese68.github.io/jota-ai-launcher/en/) · [View every release file](https://github.com/JotaEse68/jota-ai-launcher/releases/latest) · [How we built it with Codex (Spanish)](./docs/PROCESO-DE-CREACION.md) · [Verify a download](#verify-a-downloaded-file) · [Report a vulnerability](https://github.com/JotaEse68/jota-ai-launcher/security/advisories/new)
 
 </div>
 
@@ -46,13 +48,13 @@ Always download Jota AI Launcher from the official [GitHub Releases page](https:
 
 | Operating system | File | Compatibility | Terminal used |
 |---|---|---|---|
-| Windows | `Jota-AI-Launcher-Setup-*.exe` | Windows 10/11 x64 | Windows Terminal or PowerShell |
-| macOS | `Jota-AI-Launcher-*-universal.dmg` | Intel and Apple Silicon Macs | Terminal |
+| Windows | [Download `Jota-AI-Launcher-Setup-0.4.0.exe`](https://github.com/JotaEse68/jota-ai-launcher/releases/download/v0.4.0/Jota-AI-Launcher-Setup-0.4.0.exe) | Windows 10/11 x64 | Windows Terminal or PowerShell |
+| macOS | [Download `Jota-AI-Launcher-0.4.0-universal.dmg`](https://github.com/JotaEse68/jota-ai-launcher/releases/download/v0.4.0/Jota-AI-Launcher-0.4.0-universal.dmg) | Intel and Apple Silicon Macs | Terminal |
 
 ### Windows
 
-1. Open the [latest release](https://github.com/JotaEse68/jota-ai-launcher/releases/latest).
-2. Download `Jota-AI-Launcher-Setup-*.exe`.
+1. [Download `Jota-AI-Launcher-Setup-0.4.0.exe` directly](https://github.com/JotaEse68/jota-ai-launcher/releases/download/v0.4.0/Jota-AI-Launcher-Setup-0.4.0.exe).
+2. Confirm that the file comes from the official `v0.4.0` release.
 3. Verify its checksum or provenance using the instructions below.
 4. Run the installer and choose an installation location.
 5. Open **Jota AI Launcher** from the desktop or Start menu.
@@ -61,8 +63,8 @@ The installer creates shortcuts and installs the application for the current use
 
 ### macOS
 
-1. Open the [latest release](https://github.com/JotaEse68/jota-ai-launcher/releases/latest).
-2. Download `Jota-AI-Launcher-*-universal.dmg`.
+1. [Download `Jota-AI-Launcher-0.4.0-universal.dmg` directly](https://github.com/JotaEse68/jota-ai-launcher/releases/download/v0.4.0/Jota-AI-Launcher-0.4.0-universal.dmg).
+2. Confirm that the file comes from the official `v0.4.0` release.
 3. Verify its SHA-256 checksum and provenance before opening it.
 4. Mount the `.dmg` and move **Jota AI Launcher** to Applications.
 5. Start the application from Applications.
