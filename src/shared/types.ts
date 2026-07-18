@@ -66,9 +66,9 @@ export interface LauncherBridge {
   saveSettings: (settings: LauncherSettings) => Promise<LauncherSettings>;
   selectProject: (language: Language) => Promise<string | null>;
   selectProjectRoot: (language: Language) => Promise<string | null>;
-  scanProjects: (roots: string[]) => Promise<{ projects: ProjectInfo[]; automaticRoots: string[] }>;
+  scanProjects: () => Promise<{ projects: ProjectInfo[]; automaticRoots: string[] }>;
   openFolder: (path: string) => Promise<ActionResult>;
-  runAction: (tool: ToolId, action: ToolAction, projectPath: string, language: Language) => Promise<ActionResult>;
+  runAction: (tool: ToolId, action: ToolAction, language: Language) => Promise<ActionResult>;
   openLink: (url: string) => Promise<void>;
   checkLauncherUpdate: (language: Language) => Promise<ActionResult>;
 }

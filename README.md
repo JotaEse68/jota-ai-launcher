@@ -8,6 +8,7 @@
 [![English](https://img.shields.io/badge/LANGUAGE-ENGLISH-344254?style=for-the-badge)](./README.en.md)
 
 [![CI](https://github.com/JotaEse68/jota-ai-launcher/actions/workflows/ci.yml/badge.svg)](https://github.com/JotaEse68/jota-ai-launcher/actions/workflows/ci.yml)
+[![CodeQL](https://github.com/JotaEse68/jota-ai-launcher/actions/workflows/codeql.yml/badge.svg)](https://github.com/JotaEse68/jota-ai-launcher/actions/workflows/codeql.yml)
 [![Release](https://img.shields.io/github/v/release/JotaEse68/jota-ai-launcher?display_name=tag)](https://github.com/JotaEse68/jota-ai-launcher/releases/latest)
 [![Descargas](https://img.shields.io/github/downloads/JotaEse68/jota-ai-launcher/total.svg)](https://github.com/JotaEse68/jota-ai-launcher/releases)
 [![Licencia MIT](https://img.shields.io/badge/licencia-MIT-16846b.svg)](./LICENSE)
@@ -192,20 +193,20 @@ No existe una comprobación única que garantice que un programa está libre de 
 Windows PowerShell:
 
 ```powershell
-Get-FileHash -Algorithm SHA256 ".\Jota-AI-Launcher-Setup-0.3.0.exe"
+Get-FileHash -Algorithm SHA256 ".\Jota-AI-Launcher-Setup-0.3.1.exe"
 Get-Content ".\SHA256SUMS.txt"
-gh attestation verify ".\Jota-AI-Launcher-Setup-0.3.0.exe" --repo JotaEse68/jota-ai-launcher
+gh attestation verify ".\Jota-AI-Launcher-Setup-0.3.1.exe" --repo JotaEse68/jota-ai-launcher
 ```
 
 macOS Terminal:
 
 ```shell
-shasum -a 256 Jota-AI-Launcher-0.3.0-universal.dmg
+shasum -a 256 Jota-AI-Launcher-0.3.1-universal.dmg
 cat SHA256SUMS.txt
-gh attestation verify Jota-AI-Launcher-0.3.0-universal.dmg --repo JotaEse68/jota-ai-launcher
+gh attestation verify Jota-AI-Launcher-0.3.1-universal.dmg --repo JotaEse68/jota-ai-launcher
 ```
 
-Los hashes deben coincidir con `SHA256SUMS.txt`. La atestación demuestra la procedencia del archivo, pero no sustituye una revisión de seguridad. Encontrarás más instrucciones en [Cómo verificar una descarga](./docs/VERIFICAR.md) y el modelo de seguridad en [SECURITY.md](./SECURITY.md).
+Los hashes deben coincidir con `SHA256SUMS.txt`. La atestación demuestra la procedencia del archivo, pero no sustituye una revisión de seguridad. Encontrarás más instrucciones en [Cómo verificar una descarga](./docs/VERIFICAR.md), el [informe de revisión de seguridad de la versión 0.3.1](./docs/SECURITY-REVIEW.md) y el modelo de seguridad en [SECURITY.md](./SECURITY.md).
 
 ## Arquitectura
 
@@ -225,9 +226,11 @@ flowchart LR
 - El renderer no tiene acceso directo a Node.js.
 - `contextIsolation` y el sandbox de Electron están activados.
 - El preload expone únicamente operaciones concretas mediante `contextBridge`.
+- Cada petición IPC debe proceder de la ventana principal y sus datos se validan en el proceso principal.
 - Las acciones de herramientas se limitan a una lista conocida de comandos.
 - Los enlaces externos están restringidos a dominios oficiales.
-- La selección de carpetas utiliza los diálogos nativos del sistema.
+- Las rutas utilizables solo pueden proceder de ajustes validados, del escaneo controlado o de los diálogos nativos del sistema.
+- Los permisos web, nuevas ventanas, navegación y `webview` están denegados.
 
 ## Actualizaciones
 
@@ -369,6 +372,12 @@ Jota AI Launcher se distribuye bajo la [licencia MIT](./LICENSE).
 <div align="center">
 
 Hecho para abrir el proyecto correcto con el agente correcto, sin compartir tus credenciales.
+
+[**by Jota!**](https://jsantos.pro/)
+
+[iapacks.com · Premium WordPress Plugins & Tools · Built by Jota Santos](https://iapacks.com/)
+
+[GitHub · @JotaEse68](https://github.com/JotaEse68)
 
 [⬆ Volver arriba](#jota-ai-launcher)
 

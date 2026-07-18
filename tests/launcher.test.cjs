@@ -4,7 +4,7 @@ const { mkdtempSync, mkdirSync, rmSync, writeFileSync } = require("node:fs");
 const { tmpdir } = require("node:os");
 const { join } = require("node:path");
 const { TOOL_DEFINITIONS, TOOL_IDS } = require("../dist/main/definitions.js");
-const { buildSnapshot, discoverProjects } = require("../dist/main/services.js");
+const { buildSnapshot, discoverProjects, normalizeSettings } = require("../dist/main/services.js");
 
 test("define los tres agentes sin credenciales incrustadas", () => {
   assert.deepEqual(TOOL_IDS, ["codex", "claude", "opencode"]);
@@ -34,6 +34,37 @@ test("descubre proyectos reales y omite dependencias", () => {
     assert.equal(projects[0].name, "mi-aplicacion");
     assert.equal(projects[0].kind, "javascript");
     assert.equal(projects[0].marker, "package.json");
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+});
+
+test("normaliza ajustes y descarta rutas o tipos no confiables", () => {
+  const root = mkdtempSync(join(tmpdir(), "jota-settings-"));
+  try {
+    const defaults = {
+      projectPath: root,
+      autoCheckTools: true,
+      autoCheckLauncher: true,
+      startWithWindows: false,
+      language: "es",
+      projectRoots: [],
+    };
+    const normalized = normalizeSettings({
+      projectPath: join(root, "missing"),
+      autoCheckTools: "yes",
+      autoCheckLauncher: false,
+      startWithWindows: 1,
+      language: "invalid",
+      projectRoots: [root, root, join(root, "missing"), 42],
+    }, defaults);
+
+    assert.equal(normalized.projectPath, root);
+    assert.equal(normalized.autoCheckTools, true);
+    assert.equal(normalized.autoCheckLauncher, false);
+    assert.equal(normalized.startWithWindows, false);
+    assert.equal(normalized.language, "en");
+    assert.deepEqual(normalized.projectRoots, [root]);
   } finally {
     rmSync(root, { recursive: true, force: true });
   }
