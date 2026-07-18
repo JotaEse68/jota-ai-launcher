@@ -1,9 +1,10 @@
 import { app, BrowserWindow, dialog, ipcMain, shell } from "electron";
 import { autoUpdater } from "electron-updater";
+import { existsSync, statSync } from "node:fs";
 import { join } from "node:path";
 import { pathToFileURL } from "node:url";
 import type { Language, LauncherSettings, ToolAction, ToolId } from "../shared/types";
-import { buildSnapshot, openToolTerminal, readSettings, writeSettings } from "./services";
+import { buildSnapshot, openToolTerminal, readSettings, scanProjectLibrary, writeSettings } from "./services";
 import { mainText, normalizeLanguage } from "./localization";
 
 let mainWindow: BrowserWindow | null = null;
@@ -43,6 +44,11 @@ function createWindow(): void {
   if (screenshotPath) {
     mainWindow.webContents.once("did-finish-load", () => {
       setTimeout(async () => {
+        const requestedView = process.env.LAUNCHER_SCREENSHOT_VIEW;
+        if (requestedView && /^[a-z]+$/.test(requestedView)) {
+          await mainWindow?.webContents.executeJavaScript(`document.querySelector('[data-view="${requestedView}"]')?.click()`);
+          await new Promise((resolve) => setTimeout(resolve, 800));
+        }
         const image = await mainWindow?.webContents.capturePage();
         if (image) require("node:fs").writeFileSync(screenshotPath, image.toPNG());
         app.quit();
@@ -73,6 +79,24 @@ function registerIpc(): void {
       properties: ["openDirectory", "createDirectory"],
     });
     return result.canceled ? null : result.filePaths[0];
+  });
+  ipcMain.handle("launcher:project-root:select", async (_event, requestedLanguage: Language) => {
+    const language = normalizeLanguage(requestedLanguage);
+    const result = await dialog.showOpenDialog(mainWindow!, {
+      title: mainText(language, "chooseProjectRoot"),
+      properties: ["openDirectory", "createDirectory"],
+    });
+    return result.canceled ? null : result.filePaths[0];
+  });
+  ipcMain.handle("launcher:projects:scan", (_event, roots: string[]) => scanProjectLibrary(Array.isArray(roots) ? roots : []));
+  ipcMain.handle("launcher:folder:open", async (_event, requestedPath: string) => {
+    try {
+      if (!existsSync(requestedPath) || !statSync(requestedPath).isDirectory()) return { ok: false, message: "Folder not found" };
+      const error = await shell.openPath(requestedPath);
+      return { ok: !error, message: error };
+    } catch (error) {
+      return { ok: false, message: error instanceof Error ? error.message : "Folder not found" };
+    }
   });
   ipcMain.handle("launcher:action", (_event, tool: ToolId, action: ToolAction, projectPath: string, requestedLanguage: Language) => {
     const language = normalizeLanguage(requestedLanguage);

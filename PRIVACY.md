@@ -5,6 +5,7 @@ Jota AI Launcher es una aplicación local. No incluye servidor propio, analític
 ## Información que lee
 
 - La presencia y versión de Codex, Claude Code, OpenCode, Node.js y la terminal disponible.
+- Los nombres, rutas y archivos identificadores de proyectos dentro de las carpetas de desarrollo seleccionadas.
 - El estado general de autenticación que publica cada CLI.
 - Los nombres y versiones de plugins, skills y servidores MCP instalados.
 - La carpeta de proyecto elegida por el usuario.

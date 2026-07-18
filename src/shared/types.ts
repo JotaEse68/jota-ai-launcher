@@ -9,6 +9,17 @@ export interface InventoryItem {
   source?: string;
 }
 
+export type ProjectKind = "javascript" | "python" | "rust" | "go" | "dotnet" | "php" | "ruby" | "git";
+
+export interface ProjectInfo {
+  name: string;
+  path: string;
+  root: string;
+  kind: ProjectKind;
+  marker: string;
+  updatedAt: string;
+}
+
 export interface ToolStatus {
   id: ToolId;
   name: string;
@@ -41,6 +52,7 @@ export interface LauncherSettings {
   autoCheckLauncher: boolean;
   startWithWindows: boolean;
   language: Language;
+  projectRoots: string[];
 }
 
 export interface ActionResult {
@@ -53,6 +65,9 @@ export interface LauncherBridge {
   getSettings: () => Promise<LauncherSettings>;
   saveSettings: (settings: LauncherSettings) => Promise<LauncherSettings>;
   selectProject: (language: Language) => Promise<string | null>;
+  selectProjectRoot: (language: Language) => Promise<string | null>;
+  scanProjects: (roots: string[]) => Promise<{ projects: ProjectInfo[]; automaticRoots: string[] }>;
+  openFolder: (path: string) => Promise<ActionResult>;
   runAction: (tool: ToolId, action: ToolAction, projectPath: string, language: Language) => Promise<ActionResult>;
   openLink: (url: string) => Promise<void>;
   checkLauncherUpdate: (language: Language) => Promise<ActionResult>;

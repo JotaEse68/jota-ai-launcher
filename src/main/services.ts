@@ -10,6 +10,8 @@ import type {
   Language,
   LauncherSettings,
   LauncherSnapshot,
+  ProjectInfo,
+  ProjectKind,
   ToolAction,
   ToolId,
   ToolStatus,
@@ -42,6 +44,97 @@ async function commandExists(command: string): Promise<boolean> {
   } catch {
     return false;
   }
+}
+
+const PROJECT_MARKERS: Array<{ file: string; kind: ProjectKind }> = [
+  { file: "package.json", kind: "javascript" },
+  { file: "pyproject.toml", kind: "python" },
+  { file: "requirements.txt", kind: "python" },
+  { file: "Cargo.toml", kind: "rust" },
+  { file: "go.mod", kind: "go" },
+  { file: "composer.json", kind: "php" },
+  { file: "Gemfile", kind: "ruby" },
+];
+const IGNORED_PROJECT_FOLDERS = new Set(["node_modules", "dist", "build", "release", ".next", ".nuxt", ".venv", "venv", "vendor", "target", "coverage", ".git"]);
+
+function projectMarker(directory: string): { marker: string; kind: ProjectKind; updatedAt: string } | null {
+  for (const candidate of PROJECT_MARKERS) {
+    const markerPath = join(directory, candidate.file);
+    if (!existsSync(markerPath)) continue;
+    try {
+      return { marker: candidate.file, kind: candidate.kind, updatedAt: statSync(markerPath).mtime.toISOString() };
+    } catch {
+      return { marker: candidate.file, kind: candidate.kind, updatedAt: new Date(0).toISOString() };
+    }
+  }
+  try {
+    const dotnetFile = readdirSync(directory).find((entry) => /\.(sln|csproj)$/i.test(entry));
+    if (dotnetFile) {
+      const markerPath = join(directory, dotnetFile);
+      return { marker: dotnetFile, kind: "dotnet", updatedAt: statSync(markerPath).mtime.toISOString() };
+    }
+  } catch {
+    // Unreadable directories are ignored by the library scan.
+  }
+  const gitPath = join(directory, ".git");
+  if (existsSync(gitPath)) {
+    try { return { marker: ".git", kind: "git", updatedAt: statSync(gitPath).mtime.toISOString() }; }
+    catch { return { marker: ".git", kind: "git", updatedAt: new Date(0).toISOString() }; }
+  }
+  return null;
+}
+
+export function discoverProjects(roots: string[], maxDepth = 2): ProjectInfo[] {
+  const projects = new Map<string, ProjectInfo>();
+  const uniqueRoots = [...new Map(roots.filter(Boolean).map((root) => [root.toLowerCase(), root])).values()];
+  for (const root of uniqueRoots) {
+    if (!existsSync(root)) continue;
+    const queue: Array<{ directory: string; depth: number }> = [{ directory: root, depth: 0 }];
+    while (queue.length && projects.size < 250) {
+      const current = queue.shift()!;
+      let directoryStat;
+      try {
+        directoryStat = statSync(current.directory);
+      } catch {
+        continue;
+      }
+      if (!directoryStat.isDirectory()) continue;
+      const marker = projectMarker(current.directory);
+      if (marker) {
+        const key = current.directory.toLowerCase();
+        const name = current.directory.split(/[\\/]/).filter(Boolean).at(-1) || current.directory;
+        projects.set(key, { name, path: current.directory, root, ...marker });
+      }
+      if (current.depth >= maxDepth) continue;
+      let entries: string[] = [];
+      try { entries = readdirSync(current.directory); } catch { continue; }
+      for (const entry of entries) {
+        if (entry.startsWith(".") || IGNORED_PROJECT_FOLDERS.has(entry.toLowerCase())) continue;
+        const child = join(current.directory, entry);
+        try {
+          if (statSync(child).isDirectory()) queue.push({ directory: child, depth: current.depth + 1 });
+        } catch {
+          // A directory can disappear during a scan.
+        }
+      }
+    }
+  }
+  return [...projects.values()].sort((a, b) => b.updatedAt.localeCompare(a.updatedAt) || a.name.localeCompare(b.name));
+}
+
+export function automaticProjectRoots(): string[] {
+  const home = homedir();
+  const candidates = [
+    join(app.getPath("desktop"), "Desarrollo J"), join(app.getPath("desktop"), "Development"), join(app.getPath("desktop"), "Projects"),
+    join(app.getPath("documents"), "GitHub"), join(app.getPath("documents"), "Projects"),
+    join(home, "Developer"), join(home, "Projects"), join(home, "dev"), join(home, "source", "repos"),
+  ];
+  return [...new Map(candidates.filter((root) => existsSync(root)).map((root) => [root.toLowerCase(), root])).values()];
+}
+
+export function scanProjectLibrary(customRoots: string[]): { projects: ProjectInfo[]; automaticRoots: string[] } {
+  const automaticRoots = automaticProjectRoots();
+  return { projects: discoverProjects([...automaticRoots, ...customRoots]), automaticRoots };
 }
 
 function firstVersion(output: string): string | undefined {
@@ -258,6 +351,7 @@ export function readSettings(): LauncherSettings {
     autoCheckLauncher: true,
     startWithWindows: false,
     language: normalizeLanguage(app.getLocale()),
+    projectRoots: [],
   };
   try {
     const stored = JSON.parse(readFileSync(settingsFile(), "utf8")) as Partial<LauncherSettings>;
@@ -274,6 +368,9 @@ export function writeSettings(settings: LauncherSettings): LauncherSettings {
     autoCheckLauncher: Boolean(settings.autoCheckLauncher),
     startWithWindows: Boolean(settings.startWithWindows),
     language: normalizeLanguage(settings.language),
+    projectRoots: [...new Map((settings.projectRoots || []).filter((root) => {
+      try { return existsSync(root) && statSync(root).isDirectory(); } catch { return false; }
+    }).map((root) => [root.toLowerCase(), root])).values()],
   };
   writeFileSync(settingsFile(), JSON.stringify(normalized, null, 2), "utf8");
   app.setLoginItemSettings({ openAtLogin: normalized.startWithWindows });

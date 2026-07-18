@@ -1,20 +1,22 @@
 import { useEffect, useMemo, useState } from "react";
-import type { Language, LauncherSettings, LauncherSnapshot, ToolAction, ToolId, ToolStatus } from "../shared/types";
+import type { Language, LauncherSettings, LauncherSnapshot, ProjectInfo, ProjectKind, ToolAction, ToolId, ToolStatus } from "../shared/types";
 import { LANGUAGES, translate, type Translator } from "./i18n";
 
-type View = "launch" | "accounts" | "inventory" | "updates" | "help";
+type View = "launch" | "projects" | "accounts" | "inventory" | "updates" | "help";
 
-const APP_VERSION = "0.2.0";
+const APP_VERSION = "0.3.0";
 const EMPTY_SETTINGS: LauncherSettings = {
   projectPath: "",
   autoCheckTools: true,
   autoCheckLauncher: true,
   startWithWindows: false,
   language: "es",
+  projectRoots: [],
 };
 
-const NAV: Array<{ id: View; key: "navLaunch" | "navAccounts" | "navInventory" | "navUpdates" | "navHelp"; glyph: string }> = [
+const NAV: Array<{ id: View; key: "navLaunch" | "navProjects" | "navAccounts" | "navInventory" | "navUpdates" | "navHelp"; glyph: string }> = [
   { id: "launch", key: "navLaunch", glyph: "▶" },
+  { id: "projects", key: "navProjects", glyph: "◆" },
   { id: "accounts", key: "navAccounts", glyph: "◎" },
   { id: "inventory", key: "navInventory", glyph: "▦" },
   { id: "updates", key: "navUpdates", glyph: "↻" },
@@ -85,6 +87,32 @@ function LaunchView({ snapshot, settings, onChoose, onAction, t }: { snapshot: L
   </>;
 }
 
+const PROJECT_KINDS: Record<ProjectKind, { glyph: string; label: string }> = {
+  javascript: { glyph: "JS", label: "JavaScript" }, python: { glyph: "PY", label: "Python" }, rust: { glyph: "RS", label: "Rust" },
+  go: { glyph: "GO", label: "Go" }, dotnet: { glyph: ".N", label: ".NET" }, php: { glyph: "PHP", label: "PHP" }, ruby: { glyph: "RB", label: "Ruby" }, git: { glyph: "GIT", label: "Git" },
+};
+
+function ProjectsView({ projects, customRoots, automaticRoots, busy, onAddRoot, onRemoveRoot, onScan, onSelect, onOpen, t }: {
+  projects: ProjectInfo[]; customRoots: string[]; automaticRoots: string[]; busy: boolean; onAddRoot: () => void; onRemoveRoot: (root: string) => void;
+  onScan: () => void; onSelect: (project: ProjectInfo) => void; onOpen: (project: ProjectInfo) => void; t: Translator;
+}) {
+  return <section className="content-section projects-section">
+    <header className="projects-heading"><div className="section-heading compact"><span className="eyebrow">{t("projectsEyebrow")}</span><h1>{t("projectsTitle")}</h1><p>{t("projectsIntro")}</p></div><div className="project-toolbar"><button className="small-primary" onClick={onAddRoot}>＋ {t("addProjectFolder")}</button><button className="refresh-button" onClick={onScan} disabled={busy}>{busy ? t("scanningProjects") : `↻ ${t("scanProjects")}`}</button></div></header>
+    <div className="project-summary"><strong>{t("detectedProjects", { count: projects.length })}</strong><details><summary>{t("searchLocations")}</summary><div className="root-list"><span className="automatic-root">{t("automaticLocations")} · {automaticRoots.length}</span>{customRoots.map((root) => <span className="root-chip" key={root} title={root}>{shortPath(root)}<button aria-label={`${t("removeRoot")} ${root}`} onClick={() => onRemoveRoot(root)}>×</button></span>)}</div></details></div>
+    {busy && !projects.length ? <div className="project-grid"><LoadingCards /></div> : projects.length ? <div className="project-grid">{projects.map((project) => {
+      const kind = PROJECT_KINDS[project.kind];
+      return <article className={`project-card kind-${project.kind}`} key={project.path}>
+        <button className="project-card-main" onClick={() => onSelect(project)}>
+          <span className="project-visual"><i>{kind.glyph}</i><b aria-hidden="true">⌁</b></span>
+          <span className="project-copy"><small>{kind.label} · {project.marker}</small><strong>{project.name}</strong><span title={project.path}>{shortPath(project.path)}</span></span>
+          <span className="project-use">{t("useProject")} <b>→</b></span>
+        </button>
+        <button className="project-open" onClick={() => onOpen(project)}>{t("openFolder")} ↗</button>
+      </article>;
+    })}</div> : <div className="projects-empty"><span>◇</span><div><h2>{t("noProjectsTitle")}</h2><p>{t("noProjectsText")}</p></div><button className="small-primary" onClick={onAddRoot}>{t("addProjectFolder")}</button></div>}
+  </section>;
+}
+
 function AccountsView({ tools, onAction, onLink, t }: { tools: ToolStatus[]; onAction: (id: ToolId, action: ToolAction) => void; onLink: (url: string) => void; t: Translator }) {
   return <section className="content-section">
     <header className="section-heading"><span className="eyebrow">{t("accountsEyebrow")}</span><h1>{t("accountsTitle")}</h1><p>{t("accountsIntro")}</p></header>
@@ -142,6 +170,9 @@ export default function App() {
   const [view, setView] = useState<View>("launch");
   const [settings, setSettings] = useState<LauncherSettings>(EMPTY_SETTINGS);
   const [snapshot, setSnapshot] = useState<LauncherSnapshot | null>(null);
+  const [projects, setProjects] = useState<ProjectInfo[]>([]);
+  const [automaticRoots, setAutomaticRoots] = useState<string[]>([]);
+  const [projectsBusy, setProjectsBusy] = useState(true);
   const [busy, setBusy] = useState(true);
   const [notice, setNotice] = useState("");
   const language = settings.language || "es";
@@ -155,12 +186,25 @@ export default function App() {
     finally { setBusy(false); }
   };
 
+  const refreshProjects = async (roots: string[]) => {
+    setProjectsBusy(true);
+    try {
+      const result = await window.launcher.scanProjects(roots);
+      setProjects(result.projects);
+      setAutomaticRoots(result.automaticRoots);
+    } catch (error) {
+      setNotice(error instanceof Error ? error.message : t("diagnosticError"));
+    } finally {
+      setProjectsBusy(false);
+    }
+  };
+
   useEffect(() => {
     void (async () => {
       const saved = await window.launcher.getSettings();
       setSettings(saved);
       document.documentElement.lang = saved.language;
-      await scan(false);
+      await Promise.all([scan(false), refreshProjects(saved.projectRoots || [])]);
       if (saved.autoCheckTools) void window.launcher.scan(true).then(setSnapshot).catch(() => undefined);
     })();
   }, []);
@@ -170,11 +214,31 @@ export default function App() {
     setSettings(saved);
     document.documentElement.lang = saved.language;
     setNotice(message || translate(saved.language, "settingsSaved"));
+    return saved;
   };
 
   const chooseProject = async () => {
     const selected = await window.launcher.selectProject(language);
     if (selected) await saveSettings({ ...settings, projectPath: selected });
+  };
+  const addProjectRoot = async () => {
+    const root = await window.launcher.selectProjectRoot(language);
+    if (!root) return;
+    const nextRoots = [...new Map([...(settings.projectRoots || []), root].map((item) => [item.toLowerCase(), item])).values()];
+    const saved = await saveSettings({ ...settings, projectRoots: nextRoots });
+    await refreshProjects(saved.projectRoots);
+  };
+  const removeProjectRoot = async (root: string) => {
+    const saved = await saveSettings({ ...settings, projectRoots: settings.projectRoots.filter((item) => item !== root) });
+    await refreshProjects(saved.projectRoots);
+  };
+  const selectLibraryProject = async (project: ProjectInfo) => {
+    await saveSettings({ ...settings, projectPath: project.path }, t("projectSelected", { name: project.name }));
+    setView("launch");
+  };
+  const openProjectFolder = async (project: ProjectInfo) => {
+    const result = await window.launcher.openFolder(project.path);
+    setNotice(result.ok ? t("projectFolderOpened") : result.message || t("folderOpenError"));
   };
   const runAction = async (tool: ToolId, action: ToolAction) => setNotice((await window.launcher.runAction(tool, action, settings.projectPath, language)).message);
   const selfUpdate = async () => setNotice((await window.launcher.checkLauncherUpdate(language)).message);
@@ -185,13 +249,14 @@ export default function App() {
   return <div className="app-frame">
     <aside className="sidebar">
       <div className="brand"><BrandMark /><div><strong>Jota</strong><span>AI Launcher</span></div></div>
-      <nav>{NAV.map((item) => <button key={item.id} className={view === item.id ? "active" : ""} onClick={() => setView(item.id)}><span>{item.glyph}</span>{t(item.key)}</button>)}</nav>
+      <nav>{NAV.map((item) => <button key={item.id} data-view={item.id} className={view === item.id ? "active" : ""} onClick={() => setView(item.id)}><span>{item.glyph}</span>{t(item.key)}</button>)}</nav>
       <div className="sidebar-foot"><div className="machine-state"><StatusLight ok={Boolean(snapshot)} /><span>{busy ? t("readingSystem") : t("shellReady", { shell: snapshot?.shell || "Terminal" })}</span></div><small>v{APP_VERSION} · {platformName}</small></div>
     </aside>
     <main className="main-panel">
       <header className="topbar"><div className="breadcrumb"><span>{t("localPanel")}</span><b>/</b><strong>{activeNav ? t(activeNav.key) : ""}</strong></div><div className="topbar-actions"><label className="language-picker"><span>{t("language")}</span><select aria-label={t("language")} value={language} onChange={(event) => { const nextLanguage = event.target.value as Language; void saveSettings({ ...settings, language: nextLanguage }, translate(nextLanguage, "settingsSaved")); }}>{LANGUAGES.map((item) => <option value={item.code} key={item.code}>{item.label}</option>)}</select></label><button className="refresh-button" onClick={() => void scan(true)} disabled={busy}>{busy ? t("checking") : `↻ ${t("refreshStatus")}`}</button></div></header>
       <div className="page-content">
         {view === "launch" && <LaunchView snapshot={snapshot} settings={settings} onChoose={chooseProject} onAction={runAction} t={t} />}
+        {view === "projects" && <ProjectsView projects={projects} customRoots={settings.projectRoots || []} automaticRoots={automaticRoots} busy={projectsBusy} onAddRoot={addProjectRoot} onRemoveRoot={removeProjectRoot} onScan={() => void refreshProjects(settings.projectRoots || [])} onSelect={selectLibraryProject} onOpen={openProjectFolder} t={t} />}
         {view === "accounts" && <AccountsView tools={tools} onAction={runAction} onLink={openLink} t={t} />}
         {view === "inventory" && <InventoryView tools={tools} onLink={openLink} t={t} />}
         {view === "updates" && <UpdatesView tools={tools} busy={busy} onScan={() => void scan(true)} onAction={runAction} onSelfUpdate={selfUpdate} t={t} />}
