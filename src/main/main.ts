@@ -1,7 +1,7 @@
-import { app, BrowserWindow, dialog, ipcMain, shell } from "electron";
+import { app, BrowserWindow, dialog, ipcMain, session, shell, type IpcMainInvokeEvent } from "electron";
 import { autoUpdater } from "electron-updater";
-import { existsSync, statSync } from "node:fs";
-import { join } from "node:path";
+import { realpathSync, statSync } from "node:fs";
+import { join, resolve } from "node:path";
 import { pathToFileURL } from "node:url";
 import type { Language, LauncherSettings, ToolAction, ToolId } from "../shared/types";
 import { buildSnapshot, openToolTerminal, readSettings, scanProjectLibrary, writeSettings } from "./services";
@@ -17,7 +17,35 @@ const ALLOWED_LINK_HOSTS = new Set([
   "code.claude.com",
   "claude.ai",
   "opencode.ai",
+  "jsantos.pro",
+  "iapacks.com",
+  "github.com",
 ]);
+const approvedDirectories = new Set<string>();
+
+function directoryKey(value: unknown): string | null {
+  if (typeof value !== "string" || !value || value.length > 32_767) return null;
+  try {
+    const normalized = realpathSync.native(resolve(value));
+    return statSync(normalized).isDirectory() ? (process.platform === "win32" ? normalized.toLowerCase() : normalized) : null;
+  } catch {
+    return null;
+  }
+}
+
+function approveDirectory(value: string): void {
+  const key = directoryKey(value);
+  if (key) approvedDirectories.add(key);
+}
+
+function isApprovedDirectory(value: unknown): value is string {
+  const key = directoryKey(value);
+  return typeof value === "string" && key !== null && approvedDirectories.has(key);
+}
+
+function assertTrustedSender(event: IpcMainInvokeEvent): void {
+  if (!mainWindow || event.sender !== mainWindow.webContents) throw new Error("IPC sender not allowed");
+}
 
 function createWindow(): void {
   mainWindow = new BrowserWindow({
@@ -33,12 +61,17 @@ function createWindow(): void {
       contextIsolation: true,
       nodeIntegration: false,
       sandbox: true,
+      webSecurity: true,
+      allowRunningInsecureContent: false,
+      webviewTag: false,
+      devTools: !app.isPackaged,
     },
   });
 
   mainWindow.removeMenu();
   mainWindow.webContents.setWindowOpenHandler(() => ({ action: "deny" }));
   mainWindow.webContents.on("will-navigate", (event) => event.preventDefault());
+  mainWindow.webContents.on("will-attach-webview", (event) => event.preventDefault());
   mainWindow.once("ready-to-show", () => mainWindow?.show());
   const screenshotPath = process.env.LAUNCHER_SCREENSHOT_PATH;
   if (screenshotPath) {
@@ -64,51 +97,85 @@ function createWindow(): void {
 }
 
 function registerIpc(): void {
-  ipcMain.handle("launcher:scan", async (_event, includeLatest: boolean) => {
+  const initialSettings = readSettings();
+  approveDirectory(initialSettings.projectPath);
+  initialSettings.projectRoots.forEach(approveDirectory);
+
+  ipcMain.handle("launcher:scan", async (event, includeLatest: boolean) => {
+    assertTrustedSender(event);
     const startedAt = Date.now();
     const snapshot = await buildSnapshot(Boolean(includeLatest));
     console.log(`[launcher] scan ${includeLatest ? "complete" : "rápido"}: ${Date.now() - startedAt} ms`);
     return snapshot;
   });
-  ipcMain.handle("launcher:settings:get", () => readSettings());
-  ipcMain.handle("launcher:settings:save", (_event, settings: LauncherSettings) => writeSettings(settings));
-  ipcMain.handle("launcher:project:select", async (_event, requestedLanguage: Language) => {
+  ipcMain.handle("launcher:settings:get", (event) => {
+    assertTrustedSender(event);
+    return readSettings();
+  });
+  ipcMain.handle("launcher:settings:save", (event, requestedSettings: unknown) => {
+    assertTrustedSender(event);
+    const current = readSettings();
+    const candidate = typeof requestedSettings === "object" && requestedSettings !== null ? requestedSettings as Partial<LauncherSettings> : {};
+    const requestedRoots = Array.isArray(candidate.projectRoots) ? candidate.projectRoots.filter(isApprovedDirectory) : current.projectRoots;
+    return writeSettings({
+      ...current,
+      ...candidate,
+      projectPath: isApprovedDirectory(candidate.projectPath) ? candidate.projectPath : current.projectPath,
+      projectRoots: requestedRoots,
+    });
+  });
+  ipcMain.handle("launcher:project:select", async (event, requestedLanguage: Language) => {
+    assertTrustedSender(event);
     const language = normalizeLanguage(requestedLanguage);
     const result = await dialog.showOpenDialog(mainWindow!, {
       title: mainText(language, "chooseProject"),
       properties: ["openDirectory", "createDirectory"],
     });
-    return result.canceled ? null : result.filePaths[0];
+    if (result.canceled) return null;
+    approveDirectory(result.filePaths[0]);
+    return result.filePaths[0];
   });
-  ipcMain.handle("launcher:project-root:select", async (_event, requestedLanguage: Language) => {
+  ipcMain.handle("launcher:project-root:select", async (event, requestedLanguage: Language) => {
+    assertTrustedSender(event);
     const language = normalizeLanguage(requestedLanguage);
     const result = await dialog.showOpenDialog(mainWindow!, {
       title: mainText(language, "chooseProjectRoot"),
       properties: ["openDirectory", "createDirectory"],
     });
-    return result.canceled ? null : result.filePaths[0];
+    if (result.canceled) return null;
+    approveDirectory(result.filePaths[0]);
+    return result.filePaths[0];
   });
-  ipcMain.handle("launcher:projects:scan", (_event, roots: string[]) => scanProjectLibrary(Array.isArray(roots) ? roots : []));
-  ipcMain.handle("launcher:folder:open", async (_event, requestedPath: string) => {
+  ipcMain.handle("launcher:projects:scan", (event) => {
+    assertTrustedSender(event);
+    const result = scanProjectLibrary(readSettings().projectRoots);
+    result.projects.forEach((project) => approveDirectory(project.path));
+    return result;
+  });
+  ipcMain.handle("launcher:folder:open", async (event, requestedPath: string) => {
+    assertTrustedSender(event);
     try {
-      if (!existsSync(requestedPath) || !statSync(requestedPath).isDirectory()) return { ok: false, message: "Folder not found" };
+      if (!isApprovedDirectory(requestedPath)) return { ok: false, message: "Folder not allowed" };
       const error = await shell.openPath(requestedPath);
       return { ok: !error, message: error };
     } catch (error) {
       return { ok: false, message: error instanceof Error ? error.message : "Folder not found" };
     }
   });
-  ipcMain.handle("launcher:action", (_event, tool: ToolId, action: ToolAction, projectPath: string, requestedLanguage: Language) => {
+  ipcMain.handle("launcher:action", (event, tool: ToolId, action: ToolAction, requestedLanguage: Language) => {
+    assertTrustedSender(event);
     const language = normalizeLanguage(requestedLanguage);
     if (!VALID_TOOLS.has(tool) || !VALID_ACTIONS.has(action)) throw new Error(mainText(language, "actionDenied"));
-    return openToolTerminal(tool, action, projectPath, language);
+    return openToolTerminal(tool, action, readSettings().projectPath, language);
   });
-  ipcMain.handle("launcher:link", async (_event, url: string) => {
+  ipcMain.handle("launcher:link", async (event, url: string) => {
+    assertTrustedSender(event);
     const parsed = new URL(url);
     if (parsed.protocol !== "https:" || !ALLOWED_LINK_HOSTS.has(parsed.hostname)) throw new Error("Enlace no permitido");
     await shell.openExternal(parsed.toString());
   });
-  ipcMain.handle("launcher:update:self", async (_event, requestedLanguage: Language) => {
+  ipcMain.handle("launcher:update:self", async (event, requestedLanguage: Language) => {
+    assertTrustedSender(event);
     const language = normalizeLanguage(requestedLanguage);
     if (!app.isPackaged) return { ok: true, message: mainText(language, "updaterInstalledOnly") };
     try {
@@ -121,6 +188,8 @@ function registerIpc(): void {
 }
 
 app.whenReady().then(() => {
+  session.defaultSession.setPermissionCheckHandler(() => false);
+  session.defaultSession.setPermissionRequestHandler((_webContents, _permission, callback) => callback(false));
   registerIpc();
   createWindow();
   const settings = readSettings();

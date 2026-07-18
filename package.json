@@ -1,6 +1,6 @@
 {
   "name": "jota-ai-launcher",
-  "version": "0.3.0",
+  "version": "0.3.1",
   "description": "Multilingual desktop launcher for Codex, Claude Code and OpenCode on Windows and macOS.",
   "main": "dist/main/main.js",
   "author": "Jota",
@@ -37,15 +37,15 @@
     "@types/node": "^26.1.1",
     "@types/react": "^19.2.2",
     "@types/react-dom": "^19.2.2",
-    "@vitejs/plugin-react": "latest",
-    "concurrently": "latest",
-    "cross-env": "latest",
+    "@vitejs/plugin-react": "^6.0.3",
+    "concurrently": "^10.0.3",
+    "cross-env": "^10.1.0",
     "electron": "^43.1.1",
     "electron-builder": "^26.15.3",
     "sharp": "^0.35.3",
     "typescript": "^7.0.2",
     "vite": "^8.1.5",
-    "wait-on": "latest"
+    "wait-on": "^9.0.10"
   },
   "build": {
     "appId": "com.jota.ailauncher",

@@ -4,7 +4,7 @@ import { LANGUAGES, translate, type Translator } from "./i18n";
 
 type View = "launch" | "projects" | "accounts" | "inventory" | "updates" | "help";
 
-const APP_VERSION = "0.3.0";
+const APP_VERSION = "0.3.1";
 const EMPTY_SETTINGS: LauncherSettings = {
   projectPath: "",
   autoCheckTools: true,
@@ -186,10 +186,10 @@ export default function App() {
     finally { setBusy(false); }
   };
 
-  const refreshProjects = async (roots: string[]) => {
+  const refreshProjects = async () => {
     setProjectsBusy(true);
     try {
-      const result = await window.launcher.scanProjects(roots);
+      const result = await window.launcher.scanProjects();
       setProjects(result.projects);
       setAutomaticRoots(result.automaticRoots);
     } catch (error) {
@@ -204,7 +204,7 @@ export default function App() {
       const saved = await window.launcher.getSettings();
       setSettings(saved);
       document.documentElement.lang = saved.language;
-      await Promise.all([scan(false), refreshProjects(saved.projectRoots || [])]);
+      await Promise.all([scan(false), refreshProjects()]);
       if (saved.autoCheckTools) void window.launcher.scan(true).then(setSnapshot).catch(() => undefined);
     })();
   }, []);
@@ -225,12 +225,12 @@ export default function App() {
     const root = await window.launcher.selectProjectRoot(language);
     if (!root) return;
     const nextRoots = [...new Map([...(settings.projectRoots || []), root].map((item) => [item.toLowerCase(), item])).values()];
-    const saved = await saveSettings({ ...settings, projectRoots: nextRoots });
-    await refreshProjects(saved.projectRoots);
+    await saveSettings({ ...settings, projectRoots: nextRoots });
+    await refreshProjects();
   };
   const removeProjectRoot = async (root: string) => {
-    const saved = await saveSettings({ ...settings, projectRoots: settings.projectRoots.filter((item) => item !== root) });
-    await refreshProjects(saved.projectRoots);
+    await saveSettings({ ...settings, projectRoots: settings.projectRoots.filter((item) => item !== root) });
+    await refreshProjects();
   };
   const selectLibraryProject = async (project: ProjectInfo) => {
     await saveSettings({ ...settings, projectPath: project.path }, t("projectSelected", { name: project.name }));
@@ -240,7 +240,7 @@ export default function App() {
     const result = await window.launcher.openFolder(project.path);
     setNotice(result.ok ? t("projectFolderOpened") : result.message || t("folderOpenError"));
   };
-  const runAction = async (tool: ToolId, action: ToolAction) => setNotice((await window.launcher.runAction(tool, action, settings.projectPath, language)).message);
+  const runAction = async (tool: ToolId, action: ToolAction) => setNotice((await window.launcher.runAction(tool, action, language)).message);
   const selfUpdate = async () => setNotice((await window.launcher.checkLauncherUpdate(language)).message);
   const openLink = (url: string) => void window.launcher.openLink(url);
   const platformName = snapshot?.platform === "macos" ? "macOS" : snapshot?.platform === "windows" ? "Windows" : "Desktop";
@@ -250,13 +250,21 @@ export default function App() {
     <aside className="sidebar">
       <div className="brand"><BrandMark /><div><strong>Jota</strong><span>AI Launcher</span></div></div>
       <nav>{NAV.map((item) => <button key={item.id} data-view={item.id} className={view === item.id ? "active" : ""} onClick={() => setView(item.id)}><span>{item.glyph}</span>{t(item.key)}</button>)}</nav>
-      <div className="sidebar-foot"><div className="machine-state"><StatusLight ok={Boolean(snapshot)} /><span>{busy ? t("readingSystem") : t("shellReady", { shell: snapshot?.shell || "Terminal" })}</span></div><small>v{APP_VERSION} · {platformName}</small></div>
+      <div className="sidebar-foot">
+        <div className="machine-state"><StatusLight ok={Boolean(snapshot)} /><span>{busy ? t("readingSystem") : t("shellReady", { shell: snapshot?.shell || "Terminal" })}</span></div>
+        <small>v{APP_VERSION} · {platformName}</small>
+        <div className="author-links" aria-label="Jota Santos">
+          <button onClick={() => openLink("https://jsantos.pro/")}>by Jota!</button>
+          <button onClick={() => openLink("https://iapacks.com/")}>iapacks.com · Premium WordPress Plugins &amp; Tools · Built by Jota Santos</button>
+          <button onClick={() => openLink("https://github.com/JotaEse68")}>GitHub · @JotaEse68</button>
+        </div>
+      </div>
     </aside>
     <main className="main-panel">
       <header className="topbar"><div className="breadcrumb"><span>{t("localPanel")}</span><b>/</b><strong>{activeNav ? t(activeNav.key) : ""}</strong></div><div className="topbar-actions"><label className="language-picker"><span>{t("language")}</span><select aria-label={t("language")} value={language} onChange={(event) => { const nextLanguage = event.target.value as Language; void saveSettings({ ...settings, language: nextLanguage }, translate(nextLanguage, "settingsSaved")); }}>{LANGUAGES.map((item) => <option value={item.code} key={item.code}>{item.label}</option>)}</select></label><button className="refresh-button" onClick={() => void scan(true)} disabled={busy}>{busy ? t("checking") : `↻ ${t("refreshStatus")}`}</button></div></header>
       <div className="page-content">
         {view === "launch" && <LaunchView snapshot={snapshot} settings={settings} onChoose={chooseProject} onAction={runAction} t={t} />}
-        {view === "projects" && <ProjectsView projects={projects} customRoots={settings.projectRoots || []} automaticRoots={automaticRoots} busy={projectsBusy} onAddRoot={addProjectRoot} onRemoveRoot={removeProjectRoot} onScan={() => void refreshProjects(settings.projectRoots || [])} onSelect={selectLibraryProject} onOpen={openProjectFolder} t={t} />}
+        {view === "projects" && <ProjectsView projects={projects} customRoots={settings.projectRoots || []} automaticRoots={automaticRoots} busy={projectsBusy} onAddRoot={addProjectRoot} onRemoveRoot={removeProjectRoot} onScan={() => void refreshProjects()} onSelect={selectLibraryProject} onOpen={openProjectFolder} t={t} />}
         {view === "accounts" && <AccountsView tools={tools} onAction={runAction} onLink={openLink} t={t} />}
         {view === "inventory" && <InventoryView tools={tools} onLink={openLink} t={t} />}
         {view === "updates" && <UpdatesView tools={tools} busy={busy} onScan={() => void scan(true)} onAction={runAction} onSelfUpdate={selfUpdate} t={t} />}

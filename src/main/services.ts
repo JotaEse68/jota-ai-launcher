@@ -344,8 +344,8 @@ function settingsFile(): string {
   return join(app.getPath("userData"), "settings.json");
 }
 
-export function readSettings(): LauncherSettings {
-  const defaults: LauncherSettings = {
+function defaultSettings(): LauncherSettings {
+  return {
     projectPath: app.getPath("documents"),
     autoCheckTools: true,
     autoCheckLauncher: true,
@@ -353,25 +353,37 @@ export function readSettings(): LauncherSettings {
     language: normalizeLanguage(app.getLocale()),
     projectRoots: [],
   };
+}
+
+function isDirectory(value: unknown): value is string {
+  if (typeof value !== "string" || !value || value.length > 32_767) return false;
+  try { return existsSync(value) && statSync(value).isDirectory(); } catch { return false; }
+}
+
+export function normalizeSettings(value: unknown, defaults = defaultSettings()): LauncherSettings {
+  const settings = typeof value === "object" && value !== null ? value as Partial<LauncherSettings> : {};
+  const roots = Array.isArray(settings.projectRoots) ? settings.projectRoots : [];
+  return {
+    projectPath: isDirectory(settings.projectPath) ? settings.projectPath : defaults.projectPath,
+    autoCheckTools: typeof settings.autoCheckTools === "boolean" ? settings.autoCheckTools : defaults.autoCheckTools,
+    autoCheckLauncher: typeof settings.autoCheckLauncher === "boolean" ? settings.autoCheckLauncher : defaults.autoCheckLauncher,
+    startWithWindows: typeof settings.startWithWindows === "boolean" ? settings.startWithWindows : defaults.startWithWindows,
+    language: normalizeLanguage(settings.language || defaults.language),
+    projectRoots: [...new Map(roots.filter(isDirectory).slice(0, 25).map((root) => [root.toLowerCase(), root])).values()],
+  };
+}
+
+export function readSettings(): LauncherSettings {
+  const defaults = defaultSettings();
   try {
-    const stored = JSON.parse(readFileSync(settingsFile(), "utf8")) as Partial<LauncherSettings>;
-    return { ...defaults, ...stored };
+    return normalizeSettings(JSON.parse(readFileSync(settingsFile(), "utf8")), defaults);
   } catch {
     return defaults;
   }
 }
 
-export function writeSettings(settings: LauncherSettings): LauncherSettings {
-  const normalized: LauncherSettings = {
-    projectPath: existsSync(settings.projectPath) ? settings.projectPath : app.getPath("documents"),
-    autoCheckTools: Boolean(settings.autoCheckTools),
-    autoCheckLauncher: Boolean(settings.autoCheckLauncher),
-    startWithWindows: Boolean(settings.startWithWindows),
-    language: normalizeLanguage(settings.language),
-    projectRoots: [...new Map((settings.projectRoots || []).filter((root) => {
-      try { return existsSync(root) && statSync(root).isDirectory(); } catch { return false; }
-    }).map((root) => [root.toLowerCase(), root])).values()],
-  };
+export function writeSettings(settings: unknown): LauncherSettings {
+  const normalized = normalizeSettings(settings);
   writeFileSync(settingsFile(), JSON.stringify(normalized, null, 2), "utf8");
   app.setLoginItemSettings({ openAtLogin: normalized.startWithWindows });
   return normalized;
