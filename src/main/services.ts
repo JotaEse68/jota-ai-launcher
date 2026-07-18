@@ -2,11 +2,12 @@ import { app } from "electron";
 import { execFile, spawn } from "node:child_process";
 import { existsSync, readFileSync, readdirSync, statSync, writeFileSync } from "node:fs";
 import { homedir } from "node:os";
-import { dirname, join } from "node:path";
+import { join } from "node:path";
 import { promisify } from "node:util";
 import type {
   ActionResult,
   InventoryItem,
+  Language,
   LauncherSettings,
   LauncherSnapshot,
   ToolAction,
@@ -14,14 +15,19 @@ import type {
   ToolStatus,
 } from "../shared/types";
 import { TOOL_DEFINITIONS, TOOL_IDS } from "./definitions";
+import { mainText, normalizeLanguage } from "./localization";
 
 const execFileAsync = promisify(execFile);
-const POWERSHELL = "powershell.exe";
+const IS_WINDOWS = process.platform === "win32";
+
+function shellQuote(value: string): string {
+  return `'${value.replaceAll("'", `'\\''`)}'`;
+}
 
 async function captureCommand(commandLine: string, timeout = 20_000): Promise<string> {
   const { stdout, stderr } = await execFileAsync(
-    "cmd.exe",
-    ["/d", "/s", "/c", commandLine],
+    IS_WINDOWS ? "cmd.exe" : "/bin/zsh",
+    IS_WINDOWS ? ["/d", "/s", "/c", commandLine] : ["-lc", commandLine],
     { windowsHide: true, timeout, encoding: "utf8", maxBuffer: 4 * 1024 * 1024 },
   );
   return `${stdout || ""}${stderr || ""}`.trim();
@@ -29,7 +35,9 @@ async function captureCommand(commandLine: string, timeout = 20_000): Promise<st
 
 async function commandExists(command: string): Promise<boolean> {
   try {
-    await execFileAsync("where.exe", [command], { windowsHide: true, timeout: 5_000 });
+    if (!/^[a-z0-9@._-]+$/i.test(command)) return false;
+    if (IS_WINDOWS) await execFileAsync("where.exe", [command], { windowsHide: true, timeout: 5_000 });
+    else await execFileAsync("/bin/zsh", ["-lc", `command -v ${shellQuote(command)}`], { timeout: 5_000 });
     return true;
   } catch {
     return false;
@@ -228,13 +236,14 @@ export async function buildSnapshot(includeLatest = false): Promise<LauncherSnap
   const [tools, nodeInstalled, terminalInstalled] = await Promise.all([
     Promise.all(TOOL_IDS.map((id) => scanTool(id, includeLatest))),
     commandExists("node"),
-    commandExists("wt"),
+    IS_WINDOWS ? commandExists("wt") : Promise.resolve(true),
   ]);
   return {
     scannedAt: new Date().toISOString(),
     tools,
     nodeInstalled,
-    shell: terminalInstalled ? "Windows Terminal" : "PowerShell",
+    shell: IS_WINDOWS ? (terminalInstalled ? "Windows Terminal" : "PowerShell") : "Terminal",
+    platform: process.platform === "win32" ? "windows" : process.platform === "darwin" ? "macos" : "other",
   };
 }
 
@@ -248,6 +257,7 @@ export function readSettings(): LauncherSettings {
     autoCheckTools: true,
     autoCheckLauncher: true,
     startWithWindows: false,
+    language: normalizeLanguage(app.getLocale()),
   };
   try {
     const stored = JSON.parse(readFileSync(settingsFile(), "utf8")) as Partial<LauncherSettings>;
@@ -263,6 +273,7 @@ export function writeSettings(settings: LauncherSettings): LauncherSettings {
     autoCheckTools: Boolean(settings.autoCheckTools),
     autoCheckLauncher: Boolean(settings.autoCheckLauncher),
     startWithWindows: Boolean(settings.startWithWindows),
+    language: normalizeLanguage(settings.language),
   };
   writeFileSync(settingsFile(), JSON.stringify(normalized, null, 2), "utf8");
   app.setLoginItemSettings({ openAtLogin: normalized.startWithWindows });
@@ -302,16 +313,23 @@ function actionCommand(tool: ToolId, action: ToolAction): string {
   return commands[tool][action];
 }
 
-export async function openToolTerminal(tool: ToolId, action: ToolAction, requestedPath: string): Promise<ActionResult> {
+export async function openToolTerminal(tool: ToolId, action: ToolAction, requestedPath: string, language: Language): Promise<ActionResult> {
   const projectPath = existsSync(requestedPath) && statSync(requestedPath).isDirectory()
     ? requestedPath
     : app.getPath("documents");
   const command = actionCommand(tool, action);
   const title = `${TOOL_DEFINITIONS[tool].name} · Jota AI Launcher`;
-  const terminalInstalled = await commandExists("wt");
+  const terminalInstalled = IS_WINDOWS && await commandExists("wt");
 
   try {
-    const child = terminalInstalled
+    const child = process.platform === "darwin"
+      ? spawn("/usr/bin/osascript", [
+          "-e", "tell application \"Terminal\"",
+          "-e", "activate",
+          "-e", `do script "${(`cd ${shellQuote(projectPath)} && clear && ${command}`).replaceAll("\\", "\\\\").replaceAll('"', '\\"')}"`,
+          "-e", "end tell",
+        ], { detached: true, stdio: "ignore" })
+      : terminalInstalled
       ? spawn("wt.exe", ["-w", "new", "nt", "--title", title, "-d", projectPath, "powershell.exe", "-NoLogo", "-NoExit", "-Command", command], {
           detached: true,
           stdio: "ignore",
@@ -324,8 +342,8 @@ export async function openToolTerminal(tool: ToolId, action: ToolAction, request
           windowsHide: false,
         });
     child.unref();
-    return { ok: true, message: `PowerShell abierto para ${TOOL_DEFINITIONS[tool].name}.` };
+    return { ok: true, message: mainText(language, "terminalOpened", { tool: TOOL_DEFINITIONS[tool].name }) };
   } catch (error) {
-    return { ok: false, message: error instanceof Error ? error.message : "No se pudo abrir PowerShell." };
+    return { ok: false, message: error instanceof Error ? error.message : mainText(language, "terminalFailed") };
   }
 }

@@ -1,6 +1,6 @@
 # Jota AI Launcher
 
-Aplicación de escritorio para Windows que detecta, inicia y mantiene Codex, Claude Code y OpenCode desde una sola interfaz.
+Aplicación de escritorio multilingüe para Windows y macOS que detecta, inicia y mantiene Codex, Claude Code y OpenCode desde una sola interfaz.
 
 [![CI](https://github.com/JotaEse68/jota-ai-launcher/actions/workflows/ci.yml/badge.svg)](https://github.com/JotaEse68/jota-ai-launcher/actions/workflows/ci.yml)
 [![Release](https://img.shields.io/github/v/release/JotaEse68/jota-ai-launcher?display_name=tag)](https://github.com/JotaEse68/jota-ai-launcher/releases/latest)
@@ -10,7 +10,7 @@ Aplicación de escritorio para Windows que detecta, inicia y mantiene Codex, Cla
 
 ## Privacidad
 
-El instalador no contiene cuentas, contraseñas ni claves API. Cada CLI gestiona sus credenciales en el perfil del usuario de Windows. Para un ordenador compartido, se recomienda una cuenta de Windows por persona.
+El instalador no contiene cuentas, contraseñas ni claves API. Cada CLI gestiona sus credenciales en el perfil local del sistema. Para un ordenador compartido, se recomienda una cuenta del sistema por persona.
 
 Consulta la [política de privacidad](./PRIVACY.md) para ver qué información lee el launcher y qué información no recopila.
 
@@ -19,7 +19,7 @@ Consulta la [política de privacidad](./PRIVACY.md) para ver qué información l
 Jota AI Launcher es código abierto. No pedimos que confíes únicamente en una promesa: puedes revisar el código, comprobar de qué commit procede el instalador y analizarlo antes de abrirlo.
 
 - **Compilación pública:** cada release se construye en GitHub Actions desde el código visible en este repositorio.
-- **Procedencia verificable:** GitHub genera una atestación criptográfica que vincula el `.exe` con el workflow y el commit que lo produjeron.
+- **Procedencia verificable:** GitHub genera una atestación criptográfica que vincula los instaladores `.exe` y `.dmg` con el workflow y el commit que los produjeron.
 - **Integridad:** cada release incluye `SHA256SUMS.txt` para detectar cualquier modificación del instalador.
 - **Dependencias transparentes:** cada release incluye un SBOM en formato CycloneDX.
 - **Análisis local:** puedes escanear el instalador con Microsoft Defender antes de ejecutarlo.
@@ -27,11 +27,22 @@ Jota AI Launcher es código abierto. No pedimos que confíes únicamente en una 
 
 La guía completa, con comandos copiables, está en [Cómo verificar una descarga](./docs/VERIFICAR.md).
 
-> **Aviso sobre SmartScreen:** la versión inicial todavía no está firmada con un certificado comercial de firma de código. Windows puede mostrar “editor desconocido”. Esa advertencia no demuestra que exista malware, pero debe tomarse en serio: descarga únicamente desde la sección oficial de Releases y realiza las verificaciones anteriores. El objetivo futuro es firmar el instalador cuando el proyecto disponga de certificado.
+> **Aviso de firma:** la aplicación todavía no está firmada con certificados comerciales de Microsoft y Apple. Windows SmartScreen puede mostrar “editor desconocido” y macOS Gatekeeper puede impedir la primera apertura. Estas advertencias no demuestran que exista malware, pero deben tomarse en serio: descarga únicamente desde Releases y realiza las verificaciones anteriores. El objetivo futuro es firmar y notarizar ambos instaladores.
+
+## Idiomas
+
+La interfaz incluye español, inglés, francés, portugués, italiano y alemán. En una instalación nueva toma el idioma del sistema si está disponible; después se puede cambiar en cualquier momento desde el selector de la barra superior. La preferencia queda guardada localmente.
+
+## Sistemas compatibles
+
+- **Windows 10/11 x64:** instalador `.exe`; abre Windows Terminal o PowerShell.
+- **macOS Intel y Apple Silicon:** instalador universal `.dmg`; abre Terminal.
+
+El código de la interfaz es común para ambos sistemas. La detección de comandos, las rutas y la apertura de la terminal se resuelven según el sistema operativo.
 
 ## Desarrollo
 
-```powershell
+```shell
 npm install
 npm run dev
 ```
@@ -40,15 +51,23 @@ npm run dev
 
 Descarga siempre la última versión desde [GitHub Releases](https://github.com/JotaEse68/jota-ai-launcher/releases/latest).
 
+Windows:
+
 ```powershell
 npm run dist:win
 ```
 
-El instalador se genera en `release/Jota-AI-Launcher-Setup-0.1.0.exe`.
+macOS:
+
+```shell
+npm run dist:mac
+```
+
+Los instaladores se generan en la carpeta `release/`. Las releases oficiales se compilan en runners independientes de Windows y macOS mediante GitHub Actions.
 
 ## Actualizaciones
 
-El panel comprueba las versiones de los tres CLI y abre sus actualizadores oficiales en PowerShell. El propio launcher busca actualizaciones publicadas en GitHub Releases.
+El panel comprueba las versiones de los tres CLI y abre sus actualizadores oficiales en la terminal del sistema. El propio launcher busca actualizaciones publicadas en GitHub Releases.
 
 ## Fuentes oficiales
 

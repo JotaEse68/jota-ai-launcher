@@ -2,8 +2,9 @@ import { app, BrowserWindow, dialog, ipcMain, shell } from "electron";
 import { autoUpdater } from "electron-updater";
 import { join } from "node:path";
 import { pathToFileURL } from "node:url";
-import type { LauncherSettings, ToolAction, ToolId } from "../shared/types";
+import type { Language, LauncherSettings, ToolAction, ToolId } from "../shared/types";
 import { buildSnapshot, openToolTerminal, readSettings, writeSettings } from "./services";
+import { mainText, normalizeLanguage } from "./localization";
 
 let mainWindow: BrowserWindow | null = null;
 const VALID_TOOLS = new Set<ToolId>(["codex", "claude", "opencode"]);
@@ -65,29 +66,32 @@ function registerIpc(): void {
   });
   ipcMain.handle("launcher:settings:get", () => readSettings());
   ipcMain.handle("launcher:settings:save", (_event, settings: LauncherSettings) => writeSettings(settings));
-  ipcMain.handle("launcher:project:select", async () => {
+  ipcMain.handle("launcher:project:select", async (_event, requestedLanguage: Language) => {
+    const language = normalizeLanguage(requestedLanguage);
     const result = await dialog.showOpenDialog(mainWindow!, {
-      title: "Elige la carpeta del proyecto",
+      title: mainText(language, "chooseProject"),
       properties: ["openDirectory", "createDirectory"],
     });
     return result.canceled ? null : result.filePaths[0];
   });
-  ipcMain.handle("launcher:action", (_event, tool: ToolId, action: ToolAction, projectPath: string) => {
-    if (!VALID_TOOLS.has(tool) || !VALID_ACTIONS.has(action)) throw new Error("Acción no permitida");
-    return openToolTerminal(tool, action, projectPath);
+  ipcMain.handle("launcher:action", (_event, tool: ToolId, action: ToolAction, projectPath: string, requestedLanguage: Language) => {
+    const language = normalizeLanguage(requestedLanguage);
+    if (!VALID_TOOLS.has(tool) || !VALID_ACTIONS.has(action)) throw new Error(mainText(language, "actionDenied"));
+    return openToolTerminal(tool, action, projectPath, language);
   });
   ipcMain.handle("launcher:link", async (_event, url: string) => {
     const parsed = new URL(url);
     if (parsed.protocol !== "https:" || !ALLOWED_LINK_HOSTS.has(parsed.hostname)) throw new Error("Enlace no permitido");
     await shell.openExternal(parsed.toString());
   });
-  ipcMain.handle("launcher:update:self", async () => {
-    if (!app.isPackaged) return { ok: true, message: "El actualizador se activa en la versión instalada." };
+  ipcMain.handle("launcher:update:self", async (_event, requestedLanguage: Language) => {
+    const language = normalizeLanguage(requestedLanguage);
+    if (!app.isPackaged) return { ok: true, message: mainText(language, "updaterInstalledOnly") };
     try {
       const result = await autoUpdater.checkForUpdatesAndNotify();
-      return { ok: true, message: result?.updateInfo.version === app.getVersion() ? "Jota AI Launcher está al día." : "Actualización comprobada." };
+      return { ok: true, message: result?.updateInfo.version === app.getVersion() ? mainText(language, "launcherCurrent") : mainText(language, "updateChecked") };
     } catch {
-      return { ok: false, message: "El canal público de actualizaciones se activará al publicar la primera versión." };
+      return { ok: false, message: mainText(language, "updateChannelUnavailable") };
     }
   });
 }

@@ -1,7 +1,7 @@
 {
   "name": "jota-ai-launcher",
-  "version": "0.1.0",
-  "description": "Panel de lanzamiento y mantenimiento para Codex, Claude Code y OpenCode en Windows.",
+  "version": "0.2.0",
+  "description": "Multilingual desktop launcher for Codex, Claude Code and OpenCode on Windows and macOS.",
   "main": "dist/main/main.js",
   "author": "Jota",
   "license": "MIT",
@@ -25,6 +25,7 @@
     "build:renderer": "vite build",
     "build": "npm run typecheck && npm run build:main && npm run build:renderer",
     "dist:win": "npm run build && electron-builder --win nsis --publish never",
+    "dist:mac": "npm run build && electron-builder --mac dmg zip --universal --publish never",
     "start": "electron ."
   },
   "dependencies": {
@@ -49,7 +50,6 @@
   "build": {
     "appId": "com.jota.ailauncher",
     "productName": "Jota AI Launcher",
-    "artifactName": "Jota-AI-Launcher-Setup-${version}.${ext}",
     "directories": {
       "output": "release",
       "buildResources": "build"
@@ -60,12 +60,28 @@
     ],
     "win": {
       "icon": "build/icon.png",
+      "artifactName": "Jota-AI-Launcher-Setup-${version}.${ext}",
       "target": [
         {
           "target": "nsis",
           "arch": [
             "x64"
           ]
+        }
+      ]
+    },
+    "mac": {
+      "icon": "build/icon.png",
+      "artifactName": "Jota-AI-Launcher-${version}-${arch}.${ext}",
+      "category": "public.app-category.developer-tools",
+      "target": [
+        {
+          "target": "dmg",
+          "arch": ["universal"]
+        },
+        {
+          "target": "zip",
+          "arch": ["universal"]
         }
       ]
     },

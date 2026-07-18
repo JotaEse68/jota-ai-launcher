@@ -1,5 +1,6 @@
 export type ToolId = "codex" | "claude" | "opencode";
 export type ToolAction = "launch" | "resume" | "login" | "logout" | "install" | "update" | "updatePlugins";
+export type Language = "es" | "en" | "fr" | "pt" | "it" | "de";
 
 export interface InventoryItem {
   name: string;
@@ -30,7 +31,8 @@ export interface LauncherSnapshot {
   scannedAt: string;
   tools: ToolStatus[];
   nodeInstalled: boolean;
-  shell: "Windows Terminal" | "PowerShell";
+  shell: "Windows Terminal" | "PowerShell" | "Terminal";
+  platform: "windows" | "macos" | "other";
 }
 
 export interface LauncherSettings {
@@ -38,6 +40,7 @@ export interface LauncherSettings {
   autoCheckTools: boolean;
   autoCheckLauncher: boolean;
   startWithWindows: boolean;
+  language: Language;
 }
 
 export interface ActionResult {
@@ -49,8 +52,8 @@ export interface LauncherBridge {
   scan: (includeLatest?: boolean) => Promise<LauncherSnapshot>;
   getSettings: () => Promise<LauncherSettings>;
   saveSettings: (settings: LauncherSettings) => Promise<LauncherSettings>;
-  selectProject: () => Promise<string | null>;
-  runAction: (tool: ToolId, action: ToolAction, projectPath: string) => Promise<ActionResult>;
+  selectProject: (language: Language) => Promise<string | null>;
+  runAction: (tool: ToolId, action: ToolAction, projectPath: string, language: Language) => Promise<ActionResult>;
   openLink: (url: string) => Promise<void>;
-  checkLauncherUpdate: () => Promise<ActionResult>;
+  checkLauncherUpdate: (language: Language) => Promise<ActionResult>;
 }
