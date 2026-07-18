@@ -15,7 +15,7 @@
 
 Aplicación de escritorio local, multilingüe y de código abierto para Windows y macOS.
 
-[Descargar última versión](https://github.com/JotaEse68/jota-ai-launcher/releases/latest) · [Verificar una descarga](./docs/VERIFICAR.md) · [Informar de una vulnerabilidad](https://github.com/JotaEse68/jota-ai-launcher/security/advisories/new)
+[Conocer Jota AI Launcher](https://jotaese68.github.io/jota-ai-launcher/) · [Descargar última versión](https://github.com/JotaEse68/jota-ai-launcher/releases/latest) · [Verificar una descarga](./docs/VERIFICAR.md) · [Informar de una vulnerabilidad](https://github.com/JotaEse68/jota-ai-launcher/security/advisories/new)
 
 </div>
 
@@ -30,7 +30,8 @@ El launcher no sustituye a los agentes ni actúa como intermediario entre ellos 
 ### Lo más importante
 
 - Una sola interfaz para Codex, Claude Code y OpenCode.
-- Biblioteca visual de proyectos con tarjetas clicables.
+- Biblioteca visual que resume propósito, stack, GitHub y despliegue de cada proyecto.
+- Detección de apps, plugins y carpetas locales aunque no tengan repositorio.
 - Detección automática de versiones, cuentas, plugins, skills y MCP.
 - Instalación y actualización mediante los comandos oficiales de cada CLI.
 - Español, inglés, francés, portugués, italiano y alemán.
@@ -80,7 +81,7 @@ La terminal se abre dentro del proyecto seleccionado. El agente conserva sus pro
 
 ## Biblioteca visual de proyectos
 
-La sección **Proyectos** busca carpetas con código en ubicaciones de desarrollo habituales y las convierte en tarjetas clicables.
+La sección **Proyectos** funciona como una memoria local de tu trabajo. Busca proyectos en ubicaciones de desarrollo habituales, lee la primera descripción útil de su README y convierte cada carpeta en una ficha que permite recordar para qué servía, con qué se construyó y dónde está publicada.
 
 ![Biblioteca visual de proyectos](./projects-library.png)
 
@@ -88,6 +89,7 @@ La sección **Proyectos** busca carpetas con código en ubicaciones de desarroll
 
 - **Usar proyecto:** convierte esa carpeta en el proyecto activo y vuelve al panel de lanzamiento.
 - **Abrir carpeta:** abre el proyecto en el Explorador de Windows o Finder.
+- **GitHub:** abre el repositorio cuando se detecta un remoto válido.
 - **Añadir carpeta:** incorpora otra carpeta raíz donde guardes proyectos.
 - **Quitar carpeta:** deja de buscar dentro de una ubicación añadida manualmente.
 - **Buscar proyectos:** vuelve a escanear las carpetas configuradas.
@@ -105,7 +107,9 @@ La sección **Proyectos** busca carpetas con código en ubicaciones de desarroll
 | Ruby | `Gemfile` |
 | Otros repositorios | `.git` |
 
-El escaneo omite dependencias y resultados generados como `node_modules`, `dist`, `build`, `release`, `.next`, `.nuxt`, `.venv`, `vendor`, `target`, `coverage` y `.git`. Los nombres y rutas encontrados permanecen en el ordenador.
+Las tarjetas también reconocen frameworks y servicios frecuentes: React, Next.js, Vue, Nuxt, Svelte, Astro, Electron, Vite, Tailwind CSS, Supabase, Firebase, WordPress, Vercel, Netlify, Render, Railway, Cloudflare y Docker. Un proyecto sin Git sigue apareciendo como **Carpeta local** si contiene un README, código, un plugin o archivos de diseño reconocibles.
+
+El escaneo omite dependencias y resultados generados como `node_modules`, `dist`, `build`, `release`, `.next`, `.nuxt`, `.venv`, `vendor`, `target`, `coverage` y `.git`. Para elaborar la ficha solo lee metadatos locales acotados: README, manifiestos, nombres de archivos y el remoto de Git. No envía esa información fuera del ordenador.
 
 ## Herramientas compatibles
 
@@ -339,7 +343,7 @@ Depende de la herramienta y del proveedor que elijas. El launcher no exige ni al
 
 ### ¿Lee el código de mis proyectos?
 
-No analiza el contenido del código. Para descubrir proyectos solo comprueba nombres de archivos indicadores y rutas de carpetas.
+No analiza ni indexa el código fuente. Para construir cada ficha lee nombres de archivos, manifiestos, la primera descripción útil del README, cabeceras de plugins o temas WordPress y la URL del remoto GitHub. Todo se procesa localmente y no se envía al autor.
 
 ### ¿Funciona sin Internet?
 

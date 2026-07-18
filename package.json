@@ -1,6 +1,6 @@
 {
   "name": "jota-ai-launcher",
-  "version": "0.3.1",
+  "version": "0.4.0",
   "description": "Multilingual desktop launcher for Codex, Claude Code and OpenCode on Windows and macOS.",
   "main": "dist/main/main.js",
   "author": "Jota",
@@ -20,6 +20,7 @@
     "dev:renderer": "vite --host 127.0.0.1",
     "dev:electron": "wait-on tcp:5173 && cross-env VITE_DEV_SERVER_URL=http://127.0.0.1:5173 electron .",
     "typecheck": "tsc -p tsconfig.main.json --noEmit && tsc -p tsconfig.renderer.json --noEmit",
+    "site:check": "node scripts/check-site.mjs",
     "test": "npm run build:main && node --test tests/*.test.cjs",
     "build:main": "tsc -p tsconfig.main.json",
     "build:renderer": "vite build",
