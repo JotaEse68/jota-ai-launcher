@@ -20,7 +20,8 @@ test("define los tres agentes sin credenciales incrustadas", () => {
 test("produce un diagnóstico rápido con estructura estable", async () => {
   const snapshot = await buildSnapshot(false);
   assert.equal(snapshot.tools.length, 3);
-  assert.ok(["Windows Terminal", "PowerShell"].includes(snapshot.shell));
+  assert.ok(["Windows Terminal", "PowerShell", "Terminal"].includes(snapshot.shell));
+  assert.ok(["windows", "macos", "other"].includes(snapshot.platform));
   assert.equal(typeof snapshot.nodeInstalled, "boolean");
   for (const tool of snapshot.tools) {
     assert.ok(TOOL_IDS.includes(tool.id));
