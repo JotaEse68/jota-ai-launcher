@@ -25,7 +25,7 @@ Incluye una descripción del impacto, los pasos mínimos para reproducirlo y la 
 - Los binarios de release se acompañan de checksum, SBOM y atestación de procedencia.
 - CI ejecuta pruebas, auditoría completa de dependencias y análisis CodeQL con permisos mínimos.
 
-Consulta el [informe técnico de la revisión de seguridad de la versión 0.3.1](./docs/SECURITY-REVIEW.md).
+Consulta el [informe técnico de la revisión de seguridad de la versión 0.4.0](./docs/SECURITY-REVIEW.md).
 
 ## Riesgos conocidos
 
