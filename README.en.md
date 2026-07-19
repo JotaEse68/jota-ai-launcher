@@ -39,7 +39,7 @@ GPT-5.6 was particularly useful for work that crossed several layers at once:
 
 Jota AI Launcher does not pretend that GPT-5.6 is an invisible runtime dependency. It is a desktop developer tool **built with Codex and GPT-5.6**. At runtime it launches the user's own installed Codex CLI and preserves each person's existing account, permissions, settings, and credentials.
 
-Read the complete [OpenAI Build Week submission and testing guide](./docs/OPENAI-BUILD-WEEK.md), including the development timeline, technical decisions, judging path, and public evidence.
+Watch the [public Build Week video demo](https://youtu.be/Y2yW0IPqUFc) and read the complete [OpenAI Build Week submission and testing guide](./docs/OPENAI-BUILD-WEEK.md), including the development timeline, technical decisions, judging path, and public evidence.
 
 ## What is Jota AI Launcher?
 

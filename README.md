@@ -31,7 +31,7 @@ El proyecto fue construido de forma colaborativa por Jota Santos y Codex utiliza
 
 Jota AI Launcher no presenta GPT-5.6 como una dependencia oculta de ejecución. Es una herramienta de desarrollo de escritorio **construida con Codex y GPT-5.6**. Cuando se utiliza, abre la instalación de Codex de cada persona y conserva sus propias cuentas, permisos, ajustes y credenciales.
 
-Consulta la [candidatura y guía de pruebas de OpenAI Build Week](./docs/OPENAI-BUILD-WEEK.md) en inglés y la [memoria completa del proceso](./docs/PROCESO-DE-CREACION.md) en español.
+Mira la [demostración pública de Build Week](https://youtu.be/Y2yW0IPqUFc), consulta la [candidatura y guía de pruebas de OpenAI Build Week](./docs/OPENAI-BUILD-WEEK.md) en inglés y la [memoria completa del proceso](./docs/PROCESO-DE-CREACION.md) en español.
 
 ## Qué es Jota AI Launcher
 
