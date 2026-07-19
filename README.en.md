@@ -23,6 +23,24 @@ A local, multilingual, open-source desktop application for Windows and macOS.
 
 ![Jota AI Launcher main dashboard](./launcher-home.png)
 
+## OpenAI Build Week 2026
+
+Jota AI Launcher was designed and implemented during the OpenAI Build Week submission period. The first repository commit was created on July 18, 2026, and the product evolved through five public releases in less than two days.
+
+The project was built collaboratively by Jota Santos and Codex using **GPT-5.6 Sol with high reasoning**. Jota supplied the real problem, product direction, priorities, language, and acceptance decisions. Codex translated that direction into product requirements, Electron architecture, React and TypeScript implementation, tests, security hardening, documentation, GitHub workflows, releases, and the bilingual landing page.
+
+GPT-5.6 was particularly useful for work that crossed several layers at once:
+
+- turning an initial three-button launcher into a local project-memory system;
+- designing a safe Electron boundary between the renderer, IPC bridge, file system, and visible terminals;
+- recognizing stacks, repositories, deployment providers, WordPress projects, and local AI-assisted work without uploading source code;
+- tracing a CodeQL URL-validation finding to its root cause, fixing it, and adding adversarial regression tests;
+- coordinating Windows and macOS packaging, checksums, SBOMs, provenance, documentation, and release verification.
+
+Jota AI Launcher does not pretend that GPT-5.6 is an invisible runtime dependency. It is a desktop developer tool **built with Codex and GPT-5.6**. At runtime it launches the user's own installed Codex CLI and preserves each person's existing account, permissions, settings, and credentials.
+
+Read the complete [OpenAI Build Week submission and testing guide](./docs/OPENAI-BUILD-WEEK.md), including the development timeline, technical decisions, judging path, and public evidence.
+
 ## What is Jota AI Launcher?
 
 Jota AI Launcher brings **Codex**, **Claude Code**, and **OpenCode** into a single desktop application. It detects installed tools, launches each agent in the correct folder, displays versions, accounts, plugins, skills, and MCP servers, and maintains a visual library of your local projects.
