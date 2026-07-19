@@ -7,6 +7,7 @@
 **Creator:** Jota Santos  
 **Repository:** [github.com/JotaEse68/jota-ai-launcher](https://github.com/JotaEse68/jota-ai-launcher)  
 **Landing page:** [jotaese68.github.io/jota-ai-launcher/en](https://jotaese68.github.io/jota-ai-launcher/en/)  
+**Video demo:** [youtu.be/Y2yW0IPqUFc](https://youtu.be/Y2yW0IPqUFc)
 **Prebuilt releases:** [github.com/JotaEse68/jota-ai-launcher/releases/latest](https://github.com/JotaEse68/jota-ai-launcher/releases/latest)  
 **License:** MIT
 
