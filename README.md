@@ -23,6 +23,16 @@ Aplicación de escritorio local, multilingüe y de código abierto para Windows 
 
 ![Panel principal de Jota AI Launcher](./launcher-home.png)
 
+## OpenAI Build Week 2026
+
+Jota AI Launcher se diseñó e implementó durante el periodo de entregas de OpenAI Build Week. El primer commit del repositorio se creó el 18 de julio de 2026 y el producto evolucionó mediante cinco versiones públicas en menos de dos días.
+
+El proyecto fue construido de forma colaborativa por Jota Santos y Codex utilizando **GPT-5.6 Sol con razonamiento alto**. Jota aportó el problema real, la dirección del producto, las prioridades, el lenguaje y las decisiones de aceptación. Codex convirtió esa dirección en requisitos, arquitectura Electron, implementación React y TypeScript, pruebas, seguridad, documentación, automatización de GitHub, releases y landing bilingüe.
+
+Jota AI Launcher no presenta GPT-5.6 como una dependencia oculta de ejecución. Es una herramienta de desarrollo de escritorio **construida con Codex y GPT-5.6**. Cuando se utiliza, abre la instalación de Codex de cada persona y conserva sus propias cuentas, permisos, ajustes y credenciales.
+
+Consulta la [candidatura y guía de pruebas de OpenAI Build Week](./docs/OPENAI-BUILD-WEEK.md) en inglés y la [memoria completa del proceso](./docs/PROCESO-DE-CREACION.md) en español.
+
 ## Qué es Jota AI Launcher
 
 Jota AI Launcher reúne **Codex**, **Claude Code** y **OpenCode** en una única aplicación de escritorio. Detecta qué herramientas están instaladas, abre cada agente en la carpeta correcta, muestra sus versiones, cuentas, plugins, skills y servidores MCP, y mantiene una biblioteca visual con tus proyectos locales.
