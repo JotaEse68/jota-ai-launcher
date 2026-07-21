@@ -71,6 +71,17 @@ GPT-5.6 was most valuable when a request affected product design, local operatin
 
 The launcher itself does not make a hidden GPT-5.6 API call. It is a developer tool built with GPT-5.6 that launches the user's own Codex installation at runtime. This distinction is intentional and keeps authentication under the control of the official CLI.
 
+## Devpost submission checklist
+
+The repository supports the public judging path, but the final Devpost entry still requires a manual submission. Before submitting, confirm that the entry includes:
+
+- The **Developer Tools** category, an English description, and this public repository URL.
+- The public YouTube demo link above; the video is under three minutes and includes audio.
+- The `/feedback` Codex Session ID for the primary build thread where most core functionality was created.
+- The platform and installation instructions judges should use to run the project.
+
+The session ID belongs in Devpost and is intentionally not stored in this repository or in the application.
+
 ## Technical architecture
 
 ```mermaid
@@ -106,7 +117,7 @@ The installers are not yet commercially signed. Instead of making an unrealistic
 
 ## Accomplishments
 
-- Progressed from an idea to five public releases during the Build Week period.
+- Progressed from an idea to six public releases during the Build Week period.
 - Produced working Windows and macOS packages from the same codebase.
 - Built a six-language desktop interface and bilingual public landing page.
 - Turned project discovery into a useful memory system rather than a folder list.
@@ -136,7 +147,7 @@ No shared credentials or API keys are required.
 
 ### Windows
 
-1. Download [`Jota-AI-Launcher-Setup-0.4.0.exe`](https://github.com/JotaEse68/jota-ai-launcher/releases/download/v0.4.0/Jota-AI-Launcher-Setup-0.4.0.exe).
+1. Download [`Jota-AI-Launcher-Setup-0.5.0.exe`](https://github.com/JotaEse68/jota-ai-launcher/releases/download/v0.5.0/Jota-AI-Launcher-Setup-0.5.0.exe).
 2. Optionally download `SHA256SUMS.txt` from the same release and verify the installer.
 3. Run the installer and open Jota AI Launcher.
 4. Open **Projects** and add a folder that contains development projects.
@@ -145,7 +156,7 @@ No shared credentials or API keys are required.
 
 ### macOS
 
-1. Download [`Jota-AI-Launcher-0.4.0-universal.dmg`](https://github.com/JotaEse68/jota-ai-launcher/releases/download/v0.4.0/Jota-AI-Launcher-0.4.0-universal.dmg).
+1. Download [`Jota-AI-Launcher-0.5.0-universal.dmg`](https://github.com/JotaEse68/jota-ai-launcher/releases/download/v0.5.0/Jota-AI-Launcher-0.5.0-universal.dmg).
 2. Open the DMG and move Jota AI Launcher to Applications.
 3. Complete the same project-library test described for Windows.
 
@@ -174,6 +185,7 @@ The first commit was created on July 18, 2026, after the Build Week submission p
 | `v0.3.0` | Visual local project library |
 | `v0.3.1` | Complete bilingual documentation and security review |
 | `v0.4.0` | Project memory, stack and hosting detection, local non-Git projects, and bilingual landing |
+| `v0.5.0` | Finish desk, project search, focus planning, session checkpoints, and intentional project closure |
 
 Evidence is available in the [commit history](https://github.com/JotaEse68/jota-ai-launcher/commits/main/), [pull requests](https://github.com/JotaEse68/jota-ai-launcher/pulls?q=is%3Apr+is%3Aclosed), [releases](https://github.com/JotaEse68/jota-ai-launcher/releases), and [GitHub Actions](https://github.com/JotaEse68/jota-ai-launcher/actions).
 

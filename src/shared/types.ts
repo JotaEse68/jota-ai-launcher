@@ -10,6 +10,21 @@ export interface InventoryItem {
 }
 
 export type ProjectKind = "javascript" | "python" | "rust" | "go" | "dotnet" | "php" | "ruby" | "git" | "folder";
+export type ProjectPhase = "backlog" | "building" | "testing" | "shipping" | "done" | "paused" | "abandoned";
+
+export interface ProjectPlan {
+  phase: ProjectPhase;
+  deadline: string;
+  nextAction: string;
+  definitionOfDone: string;
+  focus: boolean;
+  updatedAt: string;
+  lastSessionSummary: string;
+  blocker: string;
+  lastSessionAt: string;
+  abandonedReason: string;
+  lessonLearned: string;
+}
 
 export interface ProjectInfo {
   name: string;
@@ -58,6 +73,7 @@ export interface LauncherSettings {
   startWithWindows: boolean;
   language: Language;
   projectRoots: string[];
+  projectPlans: Record<string, ProjectPlan>;
 }
 
 export interface ActionResult {

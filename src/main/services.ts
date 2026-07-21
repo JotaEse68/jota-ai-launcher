@@ -12,6 +12,8 @@ import type {
   LauncherSnapshot,
   ProjectInfo,
   ProjectKind,
+  ProjectPhase,
+  ProjectPlan,
   ToolAction,
   ToolId,
   ToolStatus,
@@ -565,6 +567,7 @@ function defaultSettings(): LauncherSettings {
     startWithWindows: false,
     language: normalizeLanguage(app.getLocale()),
     projectRoots: [],
+    projectPlans: {},
   };
 }
 
@@ -573,9 +576,42 @@ function isDirectory(value: unknown): value is string {
   try { return existsSync(value) && statSync(value).isDirectory(); } catch { return false; }
 }
 
+function isIsoDate(value: unknown): value is string {
+  if (typeof value !== "string" || !/^\d{4}-\d{2}-\d{2}$/.test(value)) return false;
+  const [year, month, day] = value.split("-").map(Number);
+  const date = new Date(Date.UTC(year, month - 1, day));
+  return date.getUTCFullYear() === year && date.getUTCMonth() === month - 1 && date.getUTCDate() === day;
+}
+
 export function normalizeSettings(value: unknown, defaults = defaultSettings()): LauncherSettings {
   const settings = typeof value === "object" && value !== null ? value as Partial<LauncherSettings> : {};
   const roots = Array.isArray(settings.projectRoots) ? settings.projectRoots : [];
+  const validPhases = new Set<ProjectPhase>(["backlog", "building", "testing", "shipping", "done", "paused", "abandoned"]);
+  const plans: Record<string, ProjectPlan> = {};
+  let focused = 0;
+  if (settings.projectPlans && typeof settings.projectPlans === "object") {
+    for (const [path, raw] of Object.entries(settings.projectPlans).slice(0, 250)) {
+      if (!isDirectory(path) || !raw || typeof raw !== "object") continue;
+      const plan = raw as Partial<ProjectPlan>;
+      const phase = validPhases.has(plan.phase as ProjectPhase) ? plan.phase as ProjectPhase : "backlog";
+      const requestedFocus = plan.focus === true && phase !== "done" && phase !== "paused" && phase !== "abandoned";
+      const focus = requestedFocus && focused < 3;
+      if (focus) focused += 1;
+      plans[path] = {
+        phase,
+        deadline: isIsoDate(plan.deadline) ? plan.deadline : "",
+        nextAction: typeof plan.nextAction === "string" ? plan.nextAction.trim().slice(0, 240) : "",
+        definitionOfDone: typeof plan.definitionOfDone === "string" ? plan.definitionOfDone.trim().slice(0, 500) : "",
+        focus,
+        updatedAt: typeof plan.updatedAt === "string" && !Number.isNaN(Date.parse(plan.updatedAt)) ? plan.updatedAt : new Date().toISOString(),
+        lastSessionSummary: typeof plan.lastSessionSummary === "string" ? plan.lastSessionSummary.trim().slice(0, 500) : "",
+        blocker: typeof plan.blocker === "string" ? plan.blocker.trim().slice(0, 240) : "",
+        lastSessionAt: typeof plan.lastSessionAt === "string" && !Number.isNaN(Date.parse(plan.lastSessionAt)) ? plan.lastSessionAt : "",
+        abandonedReason: typeof plan.abandonedReason === "string" ? plan.abandonedReason.trim().slice(0, 500) : "",
+        lessonLearned: typeof plan.lessonLearned === "string" ? plan.lessonLearned.trim().slice(0, 500) : "",
+      };
+    }
+  }
   return {
     projectPath: isDirectory(settings.projectPath) ? settings.projectPath : defaults.projectPath,
     autoCheckTools: typeof settings.autoCheckTools === "boolean" ? settings.autoCheckTools : defaults.autoCheckTools,
@@ -583,6 +619,7 @@ export function normalizeSettings(value: unknown, defaults = defaultSettings()):
     startWithWindows: typeof settings.startWithWindows === "boolean" ? settings.startWithWindows : defaults.startWithWindows,
     language: normalizeLanguage(settings.language || defaults.language),
     projectRoots: [...new Map(roots.filter(isDirectory).slice(0, 25).map((root) => [root.toLowerCase(), root])).values()],
+    projectPlans: plans,
   };
 }
 
