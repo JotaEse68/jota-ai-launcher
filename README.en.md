@@ -26,6 +26,7 @@ A local, multilingual, open-source desktop application for Windows and macOS.
 ## OpenAI Build Week 2026
 
 Jota AI Launcher was designed and implemented during the OpenAI Build Week submission period. The first repository commit was created on July 18, 2026, and the product evolved through six public releases in less than two days.
+The Devpost entry may reflect the state submitted at that time; GitHub is the living project record and documents later improvements.
 
 The project was built collaboratively by Jota Santos and Codex using **GPT-5.6 Sol with high reasoning**. Jota supplied the real problem, product direction, priorities, language, and acceptance decisions. Codex translated that direction into product requirements, Electron architecture, React and TypeScript implementation, tests, security hardening, documentation, GitHub workflows, releases, and the bilingual landing page.
 
@@ -41,6 +42,16 @@ Jota AI Launcher does not pretend that GPT-5.6 is an invisible runtime dependenc
 
 Watch the [public Build Week video demo](https://youtu.be/Y2yW0IPqUFc) and read the complete [OpenAI Build Week submission and testing guide](./docs/OPENAI-BUILD-WEEK.md), including the development timeline, technical decisions, judging path, and public evidence.
 
+### What improved in v0.5.0
+
+- **Finish Desk:** turns a project into a concrete work plan with an objective, next action, definition of done, phase, and deadline.
+- **Focus projects:** keeps up to three priority projects visible so context is not lost between sessions.
+- **Session tracking:** saves checkpoints and lets users intentionally abandon a plan when it is no longer useful.
+- **Better search:** combines fuzzy matching, status filters, and sorting to find projects quickly.
+- **Robustness:** adds strict date validation and a dependency audit with no high-severity vulnerabilities.
+
+These improvements are documented in GitHub as the application's ongoing evolution; the Build Week video does not need to show every current feature.
+
 ## What is Jota AI Launcher?
 
 Jota AI Launcher brings **Codex**, **Claude Code**, and **OpenCode** into a single desktop application. It detects installed tools, launches each agent in the correct folder, displays versions, accounts, plugins, skills, and MCP servers, and maintains a visual library of your local projects.
@@ -51,6 +62,7 @@ The launcher does not replace the agents or proxy communication between them and
 
 - One interface for Codex, Claude Code, and OpenCode.
 - Visual library that summarizes each project's purpose, stack, GitHub repository, and deployment.
+- Finish Desk for turning open-ended projects into concrete, finishable plans.
 - Local app, plugin, and folder detection even when no repository exists.
 - Automatic detection of versions, accounts, plugins, skills, and MCP servers.
 - Installation and updates through each CLI's official commands.
@@ -113,6 +125,8 @@ The **Projects** section acts as a local memory for your work. It scans common d
 - **Add folder:** includes another root folder where you keep projects.
 - **Remove folder:** stops scanning a manually added location.
 - **Find projects:** scans configured folders again.
+- **Plan in Finish Desk:** define the next step, phase, deadline, and definition of done.
+- **Save checkpoints:** record session progress and resume it later.
 
 ### Detected technologies
 
