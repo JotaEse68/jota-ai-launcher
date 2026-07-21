@@ -37,6 +37,9 @@ for (const page of pages) {
   if (!html.includes('rel="canonical"')) fail(`${label} is missing its canonical URL`);
   if (!html.includes('hreflang="es"') || !html.includes('hreflang="en"')) fail(`${label} is missing bilingual alternate links`);
   if (!html.includes("application/ld+json")) fail(`${label} is missing structured data`);
+  if (!html.includes('"softwareVersion":"0.5.0"')) fail(`${label} does not describe the current 0.5.0 release`);
+  const releaseSection = page.language === "es" ? 'id="novedades"' : 'id="whats-new"';
+  if (!html.includes(releaseSection)) fail(`${label} is missing the 0.5.0 feature section`);
 
   const ids = [...html.matchAll(/\sid="([^"]+)"/g)].map((match) => match[1]);
   const duplicateIds = ids.filter((id, index) => ids.indexOf(id) !== index);
