@@ -15,7 +15,7 @@
 
 A local, multilingual, open-source desktop application for Windows and macOS.
 
-[⬇ Download for Windows (.exe)](https://github.com/JotaEse68/jota-ai-launcher/releases/download/v0.4.0/Jota-AI-Launcher-Setup-0.4.0.exe) · [⬇ Download for macOS (.dmg)](https://github.com/JotaEse68/jota-ai-launcher/releases/download/v0.4.0/Jota-AI-Launcher-0.4.0-universal.dmg)
+[⬇ Download for Windows (.exe)](https://github.com/JotaEse68/jota-ai-launcher/releases/download/v0.5.0/Jota-AI-Launcher-Setup-0.5.0.exe) · [⬇ Download for macOS (.dmg)](https://github.com/JotaEse68/jota-ai-launcher/releases/download/v0.5.0/Jota-AI-Launcher-0.5.0-universal.dmg)
 
 [Discover Jota AI Launcher](https://jotaese68.github.io/jota-ai-launcher/en/) · [View every release file](https://github.com/JotaEse68/jota-ai-launcher/releases/latest) · [How we built it with Codex (Spanish)](./docs/PROCESO-DE-CREACION.md) · [Verify a download](#verify-a-downloaded-file) · [Report a vulnerability](https://github.com/JotaEse68/jota-ai-launcher/security/advisories/new)
 
@@ -25,7 +25,7 @@ A local, multilingual, open-source desktop application for Windows and macOS.
 
 ## OpenAI Build Week 2026
 
-Jota AI Launcher was designed and implemented during the OpenAI Build Week submission period. The first repository commit was created on July 18, 2026, and the product evolved through five public releases in less than two days.
+Jota AI Launcher was designed and implemented during the OpenAI Build Week submission period. The first repository commit was created on July 18, 2026, and the product evolved through six public releases in less than two days.
 
 The project was built collaboratively by Jota Santos and Codex using **GPT-5.6 Sol with high reasoning**. Jota supplied the real problem, product direction, priorities, language, and acceptance decisions. Codex translated that direction into product requirements, Electron architecture, React and TypeScript implementation, tests, security hardening, documentation, GitHub workflows, releases, and the bilingual landing page.
 
@@ -66,13 +66,13 @@ Always download Jota AI Launcher from the official [GitHub Releases page](https:
 
 | Operating system | File | Compatibility | Terminal used |
 |---|---|---|---|
-| Windows | [Download `Jota-AI-Launcher-Setup-0.4.0.exe`](https://github.com/JotaEse68/jota-ai-launcher/releases/download/v0.4.0/Jota-AI-Launcher-Setup-0.4.0.exe) | Windows 10/11 x64 | Windows Terminal or PowerShell |
-| macOS | [Download `Jota-AI-Launcher-0.4.0-universal.dmg`](https://github.com/JotaEse68/jota-ai-launcher/releases/download/v0.4.0/Jota-AI-Launcher-0.4.0-universal.dmg) | Intel and Apple Silicon Macs | Terminal |
+| Windows | [Download `Jota-AI-Launcher-Setup-0.5.0.exe`](https://github.com/JotaEse68/jota-ai-launcher/releases/download/v0.5.0/Jota-AI-Launcher-Setup-0.5.0.exe) | Windows 10/11 x64 | Windows Terminal or PowerShell |
+| macOS | [Download `Jota-AI-Launcher-0.5.0-universal.dmg`](https://github.com/JotaEse68/jota-ai-launcher/releases/download/v0.5.0/Jota-AI-Launcher-0.5.0-universal.dmg) | Intel and Apple Silicon Macs | Terminal |
 
 ### Windows
 
-1. [Download `Jota-AI-Launcher-Setup-0.4.0.exe` directly](https://github.com/JotaEse68/jota-ai-launcher/releases/download/v0.4.0/Jota-AI-Launcher-Setup-0.4.0.exe).
-2. Confirm that the file comes from the official `v0.4.0` release.
+1. [Download `Jota-AI-Launcher-Setup-0.5.0.exe` directly](https://github.com/JotaEse68/jota-ai-launcher/releases/download/v0.5.0/Jota-AI-Launcher-Setup-0.5.0.exe).
+2. Confirm that the file comes from the official `v0.5.0` release.
 3. Verify its checksum or provenance using the instructions below.
 4. Run the installer and choose an installation location.
 5. Open **Jota AI Launcher** from the desktop or Start menu.
@@ -81,8 +81,8 @@ The installer creates shortcuts and installs the application for the current use
 
 ### macOS
 
-1. [Download `Jota-AI-Launcher-0.4.0-universal.dmg` directly](https://github.com/JotaEse68/jota-ai-launcher/releases/download/v0.4.0/Jota-AI-Launcher-0.4.0-universal.dmg).
-2. Confirm that the file comes from the official `v0.4.0` release.
+1. [Download `Jota-AI-Launcher-0.5.0-universal.dmg` directly](https://github.com/JotaEse68/jota-ai-launcher/releases/download/v0.5.0/Jota-AI-Launcher-0.5.0-universal.dmg).
+2. Confirm that the file comes from the official `v0.5.0` release.
 3. Verify its SHA-256 checksum and provenance before opening it.
 4. Mount the `.dmg` and move **Jota AI Launcher** to Applications.
 5. Start the application from Applications.
@@ -217,17 +217,17 @@ No single scan can guarantee that an application is malware-free. Releases there
 Windows PowerShell:
 
 ```powershell
-Get-FileHash -Algorithm SHA256 ".\Jota-AI-Launcher-Setup-0.4.0.exe"
+Get-FileHash -Algorithm SHA256 ".\Jota-AI-Launcher-Setup-0.5.0.exe"
 Get-Content ".\SHA256SUMS.txt"
-gh attestation verify ".\Jota-AI-Launcher-Setup-0.4.0.exe" --repo JotaEse68/jota-ai-launcher
+gh attestation verify ".\Jota-AI-Launcher-Setup-0.5.0.exe" --repo JotaEse68/jota-ai-launcher
 ```
 
 macOS Terminal:
 
 ```shell
-shasum -a 256 Jota-AI-Launcher-0.4.0-universal.dmg
+shasum -a 256 Jota-AI-Launcher-0.5.0-universal.dmg
 cat SHA256SUMS.txt
-gh attestation verify Jota-AI-Launcher-0.4.0-universal.dmg --repo JotaEse68/jota-ai-launcher
+gh attestation verify Jota-AI-Launcher-0.5.0-universal.dmg --repo JotaEse68/jota-ai-launcher
 ```
 
 The calculated value must match `SHA256SUMS.txt`. An attestation proves where a file came from; it does not replace a security review. See the [download verification guide](./docs/VERIFICAR.md), the [version 0.4.0 security review](./docs/SECURITY-REVIEW.en.md), and the [security policy](./SECURITY.md) for more details.

@@ -1,10 +1,10 @@
 import { useEffect, useMemo, useState } from "react";
-import type { Language, LauncherSettings, LauncherSnapshot, ProjectInfo, ProjectKind, ToolAction, ToolId, ToolStatus } from "../shared/types";
+import type { Language, LauncherSettings, LauncherSnapshot, ProjectInfo, ProjectKind, ProjectPhase, ProjectPlan, ToolAction, ToolId, ToolStatus } from "../shared/types";
 import { LANGUAGES, translate, type Translator } from "./i18n";
 
 type View = "launch" | "projects" | "accounts" | "inventory" | "updates" | "help";
 
-const APP_VERSION = "0.4.0";
+const APP_VERSION = "0.5.0";
 const EMPTY_SETTINGS: LauncherSettings = {
   projectPath: "",
   autoCheckTools: true,
@@ -12,6 +12,7 @@ const EMPTY_SETTINGS: LauncherSettings = {
   startWithWindows: false,
   language: "es",
   projectRoots: [],
+  projectPlans: {},
 };
 
 const NAV: Array<{ id: View; key: "navLaunch" | "navProjects" | "navAccounts" | "navInventory" | "navUpdates" | "navHelp"; glyph: string }> = [
@@ -92,32 +93,186 @@ const PROJECT_KINDS: Record<ProjectKind, { glyph: string; label: string }> = {
   go: { glyph: "GO", label: "Go" }, dotnet: { glyph: ".N", label: ".NET" }, php: { glyph: "PHP", label: "PHP" }, ruby: { glyph: "RB", label: "Ruby" }, git: { glyph: "GIT", label: "Git" }, folder: { glyph: "DIR", label: "Folder" },
 };
 
-function ProjectsView({ projects, customRoots, automaticRoots, busy, onAddRoot, onRemoveRoot, onScan, onSelect, onOpen, onLink, t }: {
-  projects: ProjectInfo[]; customRoots: string[]; automaticRoots: string[]; busy: boolean; onAddRoot: () => void; onRemoveRoot: (root: string) => void;
-  onScan: () => void; onSelect: (project: ProjectInfo) => void; onOpen: (project: ProjectInfo) => void; onLink: (url: string) => void; t: Translator;
+type ProjectFilter = "all" | "focus" | "risk" | "unplanned" | "closed";
+
+const PHASES: ProjectPhase[] = ["backlog", "building", "testing", "shipping", "done", "paused", "abandoned"];
+
+function emptyProjectPlan(): ProjectPlan {
+  return {
+    phase: "backlog", deadline: "", nextAction: "", definitionOfDone: "", focus: false, updatedAt: new Date().toISOString(),
+    lastSessionSummary: "", blocker: "", lastSessionAt: "", abandonedReason: "", lessonLearned: "",
+  };
+}
+
+function normalizeSearch(value: string): string {
+  return value.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().replace(/[^a-z0-9+#.]+/g, " ").trim();
+}
+
+function editDistance(a: string, b: string): number {
+  const previous = Array.from({ length: b.length + 1 }, (_, index) => index);
+  for (let i = 1; i <= a.length; i += 1) {
+    let diagonal = previous[0];
+    previous[0] = i;
+    for (let j = 1; j <= b.length; j += 1) {
+      const old = previous[j];
+      previous[j] = Math.min(previous[j] + 1, previous[j - 1] + 1, diagonal + (a[i - 1] === b[j - 1] ? 0 : 1));
+      diagonal = old;
+    }
+  }
+  return previous[b.length];
+}
+
+function fuzzyTokenScore(token: string, text: string): number {
+  if (!token) return 0;
+  if (text === token) return 100;
+  if (text.startsWith(token)) return 85;
+  if (text.includes(token)) return 72;
+  const words = text.split(" ").filter(Boolean);
+  let best = 0;
+  for (const word of words) {
+    const distance = editDistance(token, word);
+    const tolerance = token.length >= 8 ? 3 : token.length >= 5 ? 2 : 1;
+    if (distance <= tolerance) best = Math.max(best, 62 - distance * 9);
+    let cursor = 0;
+    for (const character of word) if (character === token[cursor]) cursor += 1;
+    if (cursor === token.length) best = Math.max(best, 42 - Math.max(0, word.length - token.length));
+  }
+  return best;
+}
+
+function projectSearchScore(project: ProjectInfo, query: string): number {
+  const normalizedQuery = normalizeSearch(query);
+  if (!normalizedQuery) return 1;
+  const name = normalizeSearch(project.name);
+  const description = normalizeSearch(project.description || "");
+  const metadata = normalizeSearch([project.path, project.kind, ...project.technologies, ...project.services].join(" "));
+  let total = 0;
+  for (const token of normalizedQuery.split(" ")) {
+    const score = Math.max(fuzzyTokenScore(token, name) + 18, fuzzyTokenScore(token, description), fuzzyTokenScore(token, metadata) - 8);
+    if (score <= 0) return 0;
+    total += score;
+  }
+  return total;
+}
+
+function isPlanAtRisk(plan?: ProjectPlan): boolean {
+  if (!plan || plan.phase === "done" || plan.phase === "paused" || plan.phase === "abandoned") return false;
+  if (plan.deadline && plan.deadline < new Date().toISOString().slice(0, 10)) return true;
+  return Boolean(plan.focus && (!plan.nextAction || plan.blocker));
+}
+
+function deadlineLabel(deadline: string, language: Language, t: Translator): string {
+  if (!deadline) return t("noDeadline");
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  const target = new Date(`${deadline}T00:00:00`);
+  const days = Math.round((target.getTime() - today.getTime()) / 86_400_000);
+  if (days < 0) return t("deadlineOverdue", { count: Math.abs(days) });
+  if (days === 0) return t("deadlineToday");
+  if (days <= 14) return t("deadlineDays", { count: days });
+  return new Intl.DateTimeFormat(language, { day: "numeric", month: "short" }).format(target);
+}
+
+function ProjectPlanEditor({ project, initialPlan, focusCount, language, onCancel, onSave, t }: {
+  project: ProjectInfo; initialPlan?: ProjectPlan; focusCount: number; language: Language; onCancel: () => void; onSave: (plan: ProjectPlan) => void; t: Translator;
 }) {
+  const [plan, setPlan] = useState<ProjectPlan>(initialPlan || emptyProjectPlan());
+  const focusUnavailable = !plan.focus && !initialPlan?.focus && focusCount >= 3;
+  return <div className="plan-backdrop" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget) onCancel(); }}>
+    <form className="plan-dialog" role="dialog" aria-modal="true" aria-labelledby="plan-title" onSubmit={(event) => { event.preventDefault(); onSave({ ...plan, updatedAt: new Date().toISOString(), focus: plan.phase === "done" || plan.phase === "paused" || plan.phase === "abandoned" ? false : plan.focus }); }}>
+      <header><div><span className="eyebrow">{t("finishPlan")}</span><h2 id="plan-title">{project.name}</h2></div><button type="button" className="dialog-close" onClick={onCancel} aria-label={t("cancel")}>×</button></header>
+      <p className="plan-intro">{t("finishPlanIntro")}</p>
+      <div className="plan-form-grid">
+        <label><span>{t("phase")}</span><select value={plan.phase} onChange={(event) => setPlan({ ...plan, phase: event.target.value as ProjectPhase })}>{PHASES.map((phase) => <option key={phase} value={phase}>{t(`phase${phase[0].toUpperCase()}${phase.slice(1)}` as Parameters<Translator>[0])}</option>)}</select></label>
+        <label><span>{t("deadline")}</span><input type="date" lang={language} value={plan.deadline} onChange={(event) => setPlan({ ...plan, deadline: event.target.value })} /></label>
+      </div>
+      <label className="plan-wide"><span>{t("nextAction")}</span><input autoFocus maxLength={240} value={plan.nextAction} onChange={(event) => setPlan({ ...plan, nextAction: event.target.value })} placeholder={t("nextActionPlaceholder")} /></label>
+      <label className="plan-wide"><span>{t("definitionDone")}</span><textarea maxLength={500} value={plan.definitionOfDone} onChange={(event) => setPlan({ ...plan, definitionOfDone: event.target.value })} placeholder={t("definitionDonePlaceholder")} /></label>
+      <label className={`focus-check ${focusUnavailable ? "disabled" : ""}`}><input type="checkbox" checked={plan.focus} disabled={focusUnavailable || plan.phase === "done" || plan.phase === "paused" || plan.phase === "abandoned"} onChange={(event) => setPlan({ ...plan, focus: event.target.checked })} /><span><b>{t("putInFocus")}</b><small>{focusUnavailable ? t("focusLimit") : t("focusExplanation")}</small></span></label>
+      <footer><button type="button" className="text-button" onClick={onCancel}>{t("cancel")}</button><button type="submit" className="small-primary">{t("savePlan")}</button></footer>
+    </form>
+  </div>;
+}
+
+function SessionCloseEditor({ project, initialPlan, onCancel, onSave, t }: {
+  project: ProjectInfo; initialPlan?: ProjectPlan; onCancel: () => void; onSave: (plan: ProjectPlan, abandoned: boolean) => void; t: Translator;
+}) {
+  const [mode, setMode] = useState<"checkpoint" | "abandon">(initialPlan?.phase === "abandoned" ? "abandon" : "checkpoint");
+  const [plan, setPlan] = useState<ProjectPlan>(initialPlan || emptyProjectPlan());
+  const saveCheckpoint = () => {
+    const now = new Date().toISOString();
+    onSave({ ...plan, phase: plan.phase === "backlog" || plan.phase === "abandoned" ? "building" : plan.phase, updatedAt: now, lastSessionAt: now, abandonedReason: "", lessonLearned: "" }, false);
+  };
+  const saveAbandonment = () => {
+    const now = new Date().toISOString();
+    onSave({ ...plan, phase: "abandoned", focus: false, deadline: "", nextAction: "", blocker: "", updatedAt: now }, true);
+  };
+  return <div className="plan-backdrop" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget) onCancel(); }}>
+    <form className={`plan-dialog reflection-dialog mode-${mode}`} role="dialog" aria-modal="true" aria-labelledby="reflection-title" onSubmit={(event) => { event.preventDefault(); if (mode === "checkpoint") saveCheckpoint(); else saveAbandonment(); }}>
+      <header><div><span className="eyebrow">{t("sessionRitual")}</span><h2 id="reflection-title">{project.name}</h2></div><button type="button" className="dialog-close" onClick={onCancel} aria-label={t("cancel")}>×</button></header>
+      <div className="reflection-tabs" role="tablist"><button type="button" role="tab" aria-selected={mode === "checkpoint"} className={mode === "checkpoint" ? "active" : ""} onClick={() => setMode("checkpoint")}>{t("closeSession")}</button><button type="button" role="tab" aria-selected={mode === "abandon"} className={mode === "abandon" ? "active" : ""} onClick={() => setMode("abandon")}>{t("letGoProject")}</button></div>
+      {mode === "checkpoint" ? <div className="reflection-fields">
+        <p className="plan-intro">{t("closeSessionIntro")}</p>
+        <label className="plan-wide"><span>{t("whatMoved")}</span><textarea autoFocus required maxLength={500} value={plan.lastSessionSummary} onChange={(event) => setPlan({ ...plan, lastSessionSummary: event.target.value })} placeholder={t("whatMovedPlaceholder")} /></label>
+        <label className="plan-wide"><span>{t("currentBlocker")}</span><input maxLength={240} value={plan.blocker} onChange={(event) => setPlan({ ...plan, blocker: event.target.value })} placeholder={t("currentBlockerPlaceholder")} /></label>
+        <label className="plan-wide"><span>{t("landingStrip")}</span><input required maxLength={240} value={plan.nextAction} onChange={(event) => setPlan({ ...plan, nextAction: event.target.value })} placeholder={t("landingStripPlaceholder")} /></label>
+      </div> : <div className="reflection-fields abandon-fields">
+        <p className="plan-intro">{t("letGoIntro")}</p>
+        <label className="plan-wide"><span>{t("whyStop")}</span><textarea autoFocus required maxLength={500} value={plan.abandonedReason} onChange={(event) => setPlan({ ...plan, abandonedReason: event.target.value })} placeholder={t("whyStopPlaceholder")} /></label>
+        <label className="plan-wide"><span>{t("whatLearned")}</span><textarea maxLength={500} value={plan.lessonLearned} onChange={(event) => setPlan({ ...plan, lessonLearned: event.target.value })} placeholder={t("whatLearnedPlaceholder")} /></label>
+      </div>}
+      <footer><button type="button" className="text-button" onClick={onCancel}>{t("cancel")}</button><button type="submit" className={mode === "abandon" ? "release-button" : "small-primary"}>{mode === "checkpoint" ? t("saveCheckpoint") : t("confirmLetGo")}</button></footer>
+    </form>
+  </div>;
+}
+
+function ProjectsView({ projects, plans, customRoots, automaticRoots, busy, language, onAddRoot, onRemoveRoot, onScan, onSelect, onOpen, onLink, onSavePlan, t }: {
+  projects: ProjectInfo[]; plans: Record<string, ProjectPlan>; customRoots: string[]; automaticRoots: string[]; busy: boolean; language: Language; onAddRoot: () => void; onRemoveRoot: (root: string) => void;
+  onScan: () => void; onSelect: (project: ProjectInfo) => void; onOpen: (project: ProjectInfo) => void; onLink: (url: string) => void; onSavePlan: (project: ProjectInfo, plan: ProjectPlan, result?: "plan" | "checkpoint" | "abandoned") => void; t: Translator;
+}) {
+  const [query, setQuery] = useState("");
+  const [filter, setFilter] = useState<ProjectFilter>("all");
+  const [editing, setEditing] = useState<ProjectInfo | null>(null);
+  const [reflecting, setReflecting] = useState<ProjectInfo | null>(null);
+  const focusProjects = projects.filter((project) => plans[project.path]?.focus && !["done", "paused", "abandoned"].includes(plans[project.path]?.phase)).sort((a, b) => (plans[a.path].deadline || "9999").localeCompare(plans[b.path].deadline || "9999"));
+  const leadProject = focusProjects[0];
+  const rankedProjects = projects.map((project) => ({ project, score: projectSearchScore(project, query) })).filter(({ project, score }) => score > 0 && (filter === "all" || (filter === "focus" && plans[project.path]?.focus) || (filter === "risk" && isPlanAtRisk(plans[project.path])) || (filter === "unplanned" && !plans[project.path]) || (filter === "closed" && ["done", "abandoned"].includes(plans[project.path]?.phase)))).sort((a, b) => b.score - a.score || Number(Boolean(plans[b.project.path]?.focus)) - Number(Boolean(plans[a.project.path]?.focus)) || Number(!["done", "abandoned"].includes(plans[b.project.path]?.phase)) - Number(!["done", "abandoned"].includes(plans[a.project.path]?.phase)) || b.project.updatedAt.localeCompare(a.project.updatedAt));
+
   return <section className="content-section projects-section">
     <header className="projects-heading"><div className="section-heading compact"><span className="eyebrow">{t("projectsEyebrow")}</span><h1>{t("projectsTitle")}</h1><p>{t("projectsIntro")}</p></div><div className="project-toolbar"><button className="small-primary" onClick={onAddRoot}>＋ {t("addProjectFolder")}</button><button className="refresh-button" onClick={onScan} disabled={busy}>{busy ? t("scanningProjects") : `↻ ${t("scanProjects")}`}</button></div></header>
-    <div className="project-summary"><strong>{t("detectedProjects", { count: projects.length })}</strong><details><summary>{t("searchLocations")}</summary><div className="root-list"><span className="automatic-root">{t("automaticLocations")} · {automaticRoots.length}</span>{customRoots.map((root) => <span className="root-chip" key={root} title={root}>{shortPath(root)}<button aria-label={`${t("removeRoot")} ${root}`} onClick={() => onRemoveRoot(root)}>×</button></span>)}</div></details></div>
-    {busy && !projects.length ? <div className="project-grid"><LoadingCards /></div> : projects.length ? <div className="project-grid">{projects.map((project) => {
+    <aside className={`finish-desk ${leadProject ? "has-project" : ""}`}>
+      <div className="finish-marker"><span>{focusProjects.length}</span><small>/ 3</small></div>
+      {leadProject ? <><div className="finish-copy"><small>{t("finishNow")}</small><strong>{leadProject.name}</strong><p>{plans[leadProject.path].blocker ? `${t("blockedBy")}: ${plans[leadProject.path].blocker}` : plans[leadProject.path].nextAction || t("missingNextAction")}</p></div><div className="finish-meta"><span className={isPlanAtRisk(plans[leadProject.path]) ? "is-risk" : ""}>{deadlineLabel(plans[leadProject.path].deadline, language, t)}</span><div className="finish-actions"><button onClick={() => setReflecting(leadProject)}>{t("closeSession")}</button><button onClick={() => onSelect(leadProject)}>{t("continueProject")} →</button></div></div></> : <><div className="finish-copy"><small>{t("focusDesk")}</small><strong>{t("focusDeskEmpty")}</strong><p>{t("focusDeskEmptyText")}</p></div>{projects[0] && <button className="desk-plan-button" onClick={() => setEditing(projects[0])}>{t("planFirstProject")} →</button>}</>}
+    </aside>
+    <div className="project-search-row">
+      <label className="project-search"><span aria-hidden="true">⌕</span><input value={query} onChange={(event) => setQuery(event.target.value)} placeholder={t("projectSearchPlaceholder")} aria-label={t("searchProjectsLabel")} />{query && <button onClick={() => setQuery("")} aria-label={t("clearSearch")}>×</button>}</label>
+      <div className="project-filters" aria-label={t("projectFilters")}>{(["all", "focus", "risk", "unplanned", "closed"] as ProjectFilter[]).map((item) => <button key={item} className={filter === item ? "active" : ""} onClick={() => setFilter(item)}>{t(item === "all" ? "filterAll" : item === "focus" ? "filterFocus" : item === "risk" ? "filterRisk" : item === "unplanned" ? "filterUnplanned" : "filterClosed")}</button>)}</div>
+    </div>
+    <div className="project-summary"><strong>{query || filter !== "all" ? t("resultsCount", { count: rankedProjects.length }) : t("detectedProjects", { count: projects.length })}</strong><details><summary>{t("searchLocations")}</summary><div className="root-list"><span className="automatic-root">{t("automaticLocations")} · {automaticRoots.length}</span>{customRoots.map((root) => <span className="root-chip" key={root} title={root}>{shortPath(root)}<button aria-label={`${t("removeRoot")} ${root}`} onClick={() => onRemoveRoot(root)}>×</button></span>)}</div></details></div>
+    {busy && !projects.length ? <div className="project-grid"><LoadingCards /></div> : rankedProjects.length ? <div className="project-grid">{rankedProjects.map(({ project }) => {
       const kind = PROJECT_KINDS[project.kind];
-      const visibleTechnologies = project.technologies.slice(0, 5);
+      const plan = plans[project.path];
+      const visibleTechnologies = project.technologies.slice(0, 4);
       const remainingTechnologies = project.technologies.length - visibleTechnologies.length;
-      return <article className={`project-card kind-${project.kind}`} key={project.path}>
+      return <article className={`project-card kind-${project.kind} ${plan?.focus ? "is-focus" : ""}`} key={project.path}>
         <button className="project-card-main" onClick={() => onSelect(project)}>
-          <span className="project-visual"><i>{kind.glyph}</i><span className="project-service-list">{project.services.map((service) => <b key={service}>{service}</b>)}{!project.services.length && <b>{t("localFolder")}</b>}</span></span>
+          <span className="project-visual"><i>{kind.glyph}</i>{plan && <span className={`phase-badge ${isPlanAtRisk(plan) ? "risk" : ""}`}>{plan.focus ? "● " : ""}{t(`phase${plan.phase[0].toUpperCase()}${plan.phase.slice(1)}` as Parameters<Translator>[0])}</span>}<span className="project-service-list">{project.services.slice(0, 2).map((service) => <b key={service}>{service}</b>)}{!project.services.length && <b>{t("localFolder")}</b>}</span></span>
           <span className="project-copy">
             <small>{project.source === "folder" ? t("localFolder") : kind.label} · {project.marker}</small>
             <strong>{project.name}</strong>
             <span className="project-description">{project.description || t("noProjectDescription")}</span>
+            {plan && <span className={`project-next ${plan.phase === "abandoned" ? "is-released" : ""}`}><b>{plan.phase === "abandoned" ? t("whyStopped") : plan.phase === "done" ? t("doneMeans") : t("next")}</b>{plan.phase === "abandoned" ? plan.abandonedReason || t("noReasonRecorded") : plan.phase === "done" ? plan.definitionOfDone || t("phaseDone") : plan.nextAction || t("missingNextAction")}</span>}
+            {plan?.lastSessionAt && plan.phase !== "abandoned" && <span className="last-checkpoint">{t("lastCheckpoint")} · {new Intl.DateTimeFormat(language, { day: "numeric", month: "short" }).format(new Date(plan.lastSessionAt))}</span>}
             {!!visibleTechnologies.length && <span className="project-tags">{visibleTechnologies.map((technology) => <i key={technology}>{technology}</i>)}{remainingTechnologies > 0 && <i>+{remainingTechnologies}</i>}</span>}
             <span className="project-path" title={project.path}>{shortPath(project.path)}</span>
           </span>
           <span className="project-use">{t("useProject")} <b>→</b></span>
         </button>
-        <span className="project-card-actions">{project.repositoryUrl && <button className="project-repository" onClick={() => onLink(project.repositoryUrl!)}>GitHub ↗</button>}<button className="project-open" onClick={() => onOpen(project)}>{t("openFolder")} ↗</button></span>
+        <span className="project-card-actions"><button className="project-checkin" onClick={() => setReflecting(project)}>{plan?.phase === "abandoned" ? t("reviewExit") : t("session")}</button><button className="project-plan" onClick={() => setEditing(project)}>{plan ? t("editPlan") : t("planProject")}</button>{project.repositoryUrl && <button className="project-repository" onClick={() => onLink(project.repositoryUrl!)}>GitHub ↗</button>}<button className="project-open" onClick={() => onOpen(project)}>{t("openFolder")} ↗</button></span>
       </article>;
-    })}</div> : <div className="projects-empty"><span>◇</span><div><h2>{t("noProjectsTitle")}</h2><p>{t("noProjectsText")}</p></div><button className="small-primary" onClick={onAddRoot}>{t("addProjectFolder")}</button></div>}
+    })}</div> : projects.length ? <div className="projects-empty search-empty"><span>⌕</span><div><h2>{t("noSearchTitle")}</h2><p>{t("noSearchText")}</p></div><button className="refresh-button" onClick={() => { setQuery(""); setFilter("all"); }}>{t("clearSearch")}</button></div> : <div className="projects-empty"><span>◇</span><div><h2>{t("noProjectsTitle")}</h2><p>{t("noProjectsText")}</p></div><button className="small-primary" onClick={onAddRoot}>{t("addProjectFolder")}</button></div>}
+    {editing && <ProjectPlanEditor project={editing} initialPlan={plans[editing.path]} focusCount={focusProjects.length} language={language} onCancel={() => setEditing(null)} onSave={(plan) => { onSavePlan(editing, plan, "plan"); setEditing(null); }} t={t} />}
+    {reflecting && <SessionCloseEditor project={reflecting} initialPlan={plans[reflecting.path]} onCancel={() => setReflecting(null)} onSave={(plan, abandoned) => { onSavePlan(reflecting, plan, abandoned ? "abandoned" : "checkpoint"); setReflecting(null); }} t={t} />}
   </section>;
 }
 
@@ -162,12 +317,17 @@ function UpdatesView({ tools, busy, onScan, onAction, onSelfUpdate, t }: { tools
   </section>;
 }
 
-function HelpView({ settings, onSave, onLink, t }: { settings: LauncherSettings; onSave: (next: LauncherSettings) => void; onLink: (url: string) => void; t: Translator }) {
+function HelpView({ settings, onSave, onLink, onGoProjects, t }: { settings: LauncherSettings; onSave: (next: LauncherSettings) => void; onLink: (url: string) => void; onGoProjects: () => void; t: Translator }) {
   const toggle = (key: "autoCheckTools" | "autoCheckLauncher" | "startWithWindows") => onSave({ ...settings, [key]: !settings[key] });
   return <section className="content-section">
-    <header className="section-heading compact"><span className="eyebrow">{t("guideEyebrow")}</span><h1>{t("guideTitle")}</h1></header>
+    <header className="section-heading help-heading"><span className="eyebrow">{t("guideEyebrow")}</span><h1>{t("guideTitle")}</h1><p>{t("guideIntro")}</p><button className="small-primary" onClick={onGoProjects}>{t("openFinishDesk")} →</button></header>
+    <div className="finish-method">
+      <div><span>01</span><b>{t("methodLimit")}</b><p>{t("methodLimitText")}</p></div>
+      <div><span>02</span><b>{t("methodNext")}</b><p>{t("methodNextText")}</p></div>
+      <div><span>03</span><b>{t("methodDone")}</b><p>{t("methodDoneText")}</p></div>
+    </div>
     <div className="help-grid">
-      <article className="steps-panel"><h2>{t("howToStart")}</h2><ol><li><b>{t("stepProject")}</b><span>{t("stepProjectText")}</span></li><li><b>{t("stepAccount")}</b><span>{t("stepAccountText")}</span></li><li><b>{t("stepAgent")}</b><span>{t("stepAgentText")}</span></li></ol></article>
+      <article className="steps-panel playbook-panel"><h2>{t("rescuePlaybooks")}</h2><ol><li><b>{t("resumeProject")}</b><span>{t("resumeProjectText")}</span></li><li><b>{t("unblockProject")}</b><span>{t("unblockProjectText")}</span></li><li><b>{t("shipProject")}</b><span>{t("shipProjectText")}</span></li><li><b>{t("releaseProject")}</b><span>{t("releaseProjectText")}</span></li></ol></article>
       <article className="settings-panel"><h2>{t("preferences")}</h2><label className="switch-row"><span><b>{t("checkTools")}</b><small>{t("checkToolsText")}</small></span><input type="checkbox" checked={settings.autoCheckTools} onChange={() => toggle("autoCheckTools")} /><i /></label><label className="switch-row"><span><b>{t("updateLauncher")}</b><small>{t("updateLauncherText")}</small></span><input type="checkbox" checked={settings.autoCheckLauncher} onChange={() => toggle("autoCheckLauncher")} /><i /></label><label className="switch-row"><span><b>{t("startSystem")}</b><small>{t("startSystemText")}</small></span><input type="checkbox" checked={settings.startWithWindows} onChange={() => toggle("startWithWindows")} /><i /></label></article>
     </div>
     <div className="download-strip"><div><strong>{t("missingTool")}</strong><p>{t("officialRequirements")}</p></div><button onClick={() => onLink("https://developers.openai.com/codex/cli/")}>Codex ↗</button><button onClick={() => onLink("https://code.claude.com/docs/en/setup")}>Claude Code ↗</button><button onClick={() => onLink("https://opencode.ai/docs/")}>OpenCode ↗</button></div>
@@ -248,6 +408,10 @@ export default function App() {
     const result = await window.launcher.openFolder(project.path);
     setNotice(result.ok ? t("projectFolderOpened") : result.message || t("folderOpenError"));
   };
+  const saveProjectPlan = async (project: ProjectInfo, plan: ProjectPlan, result: "plan" | "checkpoint" | "abandoned" = "plan") => {
+    const messageKey = result === "checkpoint" ? "checkpointSaved" : result === "abandoned" ? "projectReleased" : "projectPlanSaved";
+    await saveSettings({ ...settings, projectPlans: { ...(settings.projectPlans || {}), [project.path]: plan } }, t(messageKey, { name: project.name }));
+  };
   const runAction = async (tool: ToolId, action: ToolAction) => setNotice((await window.launcher.runAction(tool, action, language)).message);
   const selfUpdate = async () => setNotice((await window.launcher.checkLauncherUpdate(language)).message);
   const openLink = (url: string) => void window.launcher.openLink(url);
@@ -272,11 +436,11 @@ export default function App() {
       <header className="topbar"><div className="breadcrumb"><span>{t("localPanel")}</span><b>/</b><strong>{activeNav ? t(activeNav.key) : ""}</strong></div><div className="topbar-actions"><label className="language-picker"><span>{t("language")}</span><select aria-label={t("language")} value={language} onChange={(event) => { const nextLanguage = event.target.value as Language; void saveSettings({ ...settings, language: nextLanguage }, translate(nextLanguage, "settingsSaved")); }}>{LANGUAGES.map((item) => <option value={item.code} key={item.code}>{item.label}</option>)}</select></label><button className="refresh-button" onClick={() => void scan(true)} disabled={busy}>{busy ? t("checking") : `↻ ${t("refreshStatus")}`}</button></div></header>
       <div className="page-content">
         {view === "launch" && <LaunchView snapshot={snapshot} settings={settings} onChoose={chooseProject} onAction={runAction} t={t} />}
-        {view === "projects" && <ProjectsView projects={projects} customRoots={settings.projectRoots || []} automaticRoots={automaticRoots} busy={projectsBusy} onAddRoot={addProjectRoot} onRemoveRoot={removeProjectRoot} onScan={() => void refreshProjects()} onSelect={selectLibraryProject} onOpen={openProjectFolder} onLink={openLink} t={t} />}
+        {view === "projects" && <ProjectsView projects={projects} plans={settings.projectPlans || {}} customRoots={settings.projectRoots || []} automaticRoots={automaticRoots} busy={projectsBusy} language={language} onAddRoot={addProjectRoot} onRemoveRoot={removeProjectRoot} onScan={() => void refreshProjects()} onSelect={selectLibraryProject} onOpen={openProjectFolder} onLink={openLink} onSavePlan={saveProjectPlan} t={t} />}
         {view === "accounts" && <AccountsView tools={tools} onAction={runAction} onLink={openLink} t={t} />}
         {view === "inventory" && <InventoryView tools={tools} onLink={openLink} t={t} />}
         {view === "updates" && <UpdatesView tools={tools} busy={busy} onScan={() => void scan(true)} onAction={runAction} onSelfUpdate={selfUpdate} t={t} />}
-        {view === "help" && <HelpView settings={settings} onSave={saveSettings} onLink={openLink} t={t} />}
+        {view === "help" && <HelpView settings={settings} onSave={saveSettings} onLink={openLink} onGoProjects={() => setView("projects")} t={t} />}
       </div>
     </main>
     {notice && <button className="toast" onClick={() => setNotice("")}><span>{notice}</span><b>×</b></button>}

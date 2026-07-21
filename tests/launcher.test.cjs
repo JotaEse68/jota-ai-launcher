@@ -95,6 +95,11 @@ test("resume README, stack, repositorio y despliegue, e incluye plugins locales"
 test("normaliza ajustes y descarta rutas o tipos no confiables", () => {
   const root = mkdtempSync(join(tmpdir(), "jota-settings-"));
   try {
+    const projectPaths = ["one", "two", "three", "four"].map((name) => {
+      const path = join(root, name);
+      mkdirSync(path);
+      return path;
+    });
     const defaults = {
       projectPath: root,
       autoCheckTools: true,
@@ -102,6 +107,7 @@ test("normaliza ajustes y descarta rutas o tipos no confiables", () => {
       startWithWindows: false,
       language: "es",
       projectRoots: [],
+      projectPlans: {},
     };
     const normalized = normalizeSettings({
       projectPath: join(root, "missing"),
@@ -110,6 +116,19 @@ test("normaliza ajustes y descarta rutas o tipos no confiables", () => {
       startWithWindows: 1,
       language: "invalid",
       projectRoots: [root, root, join(root, "missing"), 42],
+      projectPlans: Object.fromEntries(projectPaths.map((path, index) => [path, {
+        phase: index === 0 ? "invalid" : index === 3 ? "abandoned" : "building",
+        deadline: index === 1 ? "not-a-date" : index === 2 ? "2026-99-99" : "2026-12-01",
+        nextAction: "  paso verificable  ",
+        definitionOfDone: "  publicado  ",
+        focus: true,
+        updatedAt: "invalid",
+        lastSessionSummary: "  sesión cerrada  ",
+        blocker: "  API pendiente  ",
+        lastSessionAt: "2026-07-21T10:00:00.000Z",
+        abandonedReason: "  ya no aporta valor  ",
+        lessonLearned: "  validar antes  ",
+      }])),
     }, defaults);
 
     assert.equal(normalized.projectPath, root);
@@ -118,6 +137,15 @@ test("normaliza ajustes y descarta rutas o tipos no confiables", () => {
     assert.equal(normalized.startWithWindows, false);
     assert.equal(normalized.language, "en");
     assert.deepEqual(normalized.projectRoots, [root]);
+    assert.equal(normalized.projectPlans[projectPaths[0]].phase, "backlog");
+    assert.equal(normalized.projectPlans[projectPaths[1]].deadline, "");
+    assert.equal(normalized.projectPlans[projectPaths[2]].deadline, "");
+    assert.equal(normalized.projectPlans[projectPaths[0]].nextAction, "paso verificable");
+    assert.equal(Object.values(normalized.projectPlans).filter((plan) => plan.focus).length, 3);
+    assert.equal(normalized.projectPlans[projectPaths[0]].lastSessionSummary, "sesión cerrada");
+    assert.equal(normalized.projectPlans[projectPaths[3]].phase, "abandoned");
+    assert.equal(normalized.projectPlans[projectPaths[3]].focus, false);
+    assert.equal(normalized.projectPlans[projectPaths[3]].lessonLearned, "validar antes");
   } finally {
     rmSync(root, { recursive: true, force: true });
   }
