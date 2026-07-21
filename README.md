@@ -25,13 +25,23 @@ Aplicación de escritorio local, multilingüe y de código abierto para Windows 
 
 ## OpenAI Build Week 2026
 
-Jota AI Launcher se diseñó e implementó durante el periodo de entregas de OpenAI Build Week. El primer commit del repositorio se creó el 18 de julio de 2026 y el producto evolucionó mediante cinco versiones públicas en menos de dos días.
+Jota AI Launcher se diseñó e implementó durante el periodo de entregas de OpenAI Build Week. El primer commit del repositorio se creó el 18 de julio de 2026 y el producto evolucionó mediante seis versiones públicas en menos de dos días. La candidatura de Devpost puede reflejar el estado presentado originalmente; GitHub mantiene la versión viva del proyecto y sus mejoras posteriores.
 
 El proyecto fue construido de forma colaborativa por Jota Santos y Codex utilizando **GPT-5.6 Sol con razonamiento alto**. Jota aportó el problema real, la dirección del producto, las prioridades, el lenguaje y las decisiones de aceptación. Codex convirtió esa dirección en requisitos, arquitectura Electron, implementación React y TypeScript, pruebas, seguridad, documentación, automatización de GitHub, releases y landing bilingüe.
 
 Jota AI Launcher no presenta GPT-5.6 como una dependencia oculta de ejecución. Es una herramienta de desarrollo de escritorio **construida con Codex y GPT-5.6**. Cuando se utiliza, abre la instalación de Codex de cada persona y conserva sus propias cuentas, permisos, ajustes y credenciales.
 
 Mira la [demostración pública de Build Week](https://youtu.be/Y2yW0IPqUFc), consulta la [candidatura y guía de pruebas de OpenAI Build Week](./docs/OPENAI-BUILD-WEEK.md) en inglés y la [memoria completa del proceso](./docs/PROCESO-DE-CREACION.md) en español.
+
+### Qué mejoró en v0.5.0
+
+- **Mesa de cierre (Finish Desk):** convierte un proyecto en un plan de trabajo con objetivo, siguiente acción, definición de terminado, fase y fecha límite.
+- **Proyectos foco:** permite mantener hasta tres proyectos prioritarios visibles para no perder el contexto entre sesiones.
+- **Seguimiento de sesiones:** guarda checkpoints y permite abandonar un plan de forma explícita cuando deja de ser útil.
+- **Búsqueda más útil:** combina búsqueda aproximada, filtros por estado y ordenación para encontrar proyectos rápidamente.
+- **Robustez:** añade validación estricta de fechas y una auditoría de dependencias sin vulnerabilidades de severidad alta.
+
+Estas mejoras están documentadas en GitHub como la evolución de la aplicación y no implican que el vídeo de Build Week muestre todas las funciones actuales.
 
 ## Qué es Jota AI Launcher
 
@@ -43,6 +53,7 @@ El launcher no sustituye a los agentes ni actúa como intermediario entre ellos 
 
 - Una sola interfaz para Codex, Claude Code y OpenCode.
 - Biblioteca visual que resume propósito, stack, GitHub y despliegue de cada proyecto.
+- Mesa de cierre para convertir proyectos abiertos en planes concretos y terminables.
 - Detección de apps, plugins y carpetas locales aunque no tengan repositorio.
 - Detección automática de versiones, cuentas, plugins, skills y MCP.
 - Instalación y actualización mediante los comandos oficiales de cada CLI.
@@ -105,6 +116,8 @@ La sección **Proyectos** funciona como una memoria local de tu trabajo. Busca p
 - **Añadir carpeta:** incorpora otra carpeta raíz donde guardes proyectos.
 - **Quitar carpeta:** deja de buscar dentro de una ubicación añadida manualmente.
 - **Buscar proyectos:** vuelve a escanear las carpetas configuradas.
+- **Planificar en la mesa de cierre:** define el siguiente paso, la fase, la fecha límite y la definición de terminado.
+- **Guardar checkpoints:** registra el estado de una sesión y retómala después.
 
 ### Tecnologías detectadas
 
