@@ -4,7 +4,8 @@ const { mkdtempSync, mkdirSync, rmSync, writeFileSync } = require("node:fs");
 const { tmpdir } = require("node:os");
 const { join } = require("node:path");
 const { TOOL_DEFINITIONS, TOOL_IDS } = require("../dist/main/definitions.js");
-const { buildSnapshot, discoverProjects, normalizeSettings } = require("../dist/main/services.js");
+const { buildSnapshot, discoverProjects, normalizeSettings, scanCleanupDirectory } = require("../dist/main/services.js");
+const { isProjectHidden } = require("../dist/shared/types.js");
 
 test("define los tres agentes sin credenciales incrustadas", () => {
   assert.deepEqual(TOOL_IDS, ["codex", "claude", "opencode"]);
@@ -92,6 +93,49 @@ test("resume README, stack, repositorio y despliegue, e incluye plugins locales"
   }
 });
 
+test("detecta el enlace público y clasifica apps y plugins", () => {
+  const root = mkdtempSync(join(tmpdir(), "jota-public-links-"));
+  try {
+    const web = join(root, "panel-publico");
+    const plugin = join(root, "mi-plugin");
+    mkdirSync(web, { recursive: true });
+    mkdirSync(plugin, { recursive: true });
+    writeFileSync(join(web, "package.json"), JSON.stringify({ name: "panel-publico", homepage: "https://panel-publico.vercel.app", dependencies: { next: "latest", react: "latest" } }));
+    writeFileSync(join(plugin, "mi-plugin.php"), "<?php\n/* Plugin Name: Mi Plugin */");
+    const projects = discoverProjects([root]);
+    const foundWeb = projects.find((project) => project.name === "panel-publico");
+    const foundPlugin = projects.find((project) => project.name === "mi-plugin");
+    assert.equal(foundWeb.publicUrl, "https://panel-publico.vercel.app/");
+    assert.equal(foundWeb.deploymentService, "Vercel");
+    assert.equal(foundWeb.projectType, "web-app");
+    assert.equal(foundPlugin.projectType, "plugin");
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+});
+
+test("separa residuos seguros, revisables y protegidos sin borrar nada", () => {
+  const root = mkdtempSync(join(tmpdir(), "jota-cleanup-"));
+  try {
+    mkdirSync(join(root, "node_modules", "package"), { recursive: true });
+    mkdirSync(join(root, "dist"), { recursive: true });
+    mkdirSync(join(root, "carpeta-vacia"), { recursive: true });
+    mkdirSync(join(root, "src"), { recursive: true });
+    writeFileSync(join(root, "node_modules", "package", "index.js"), "x".repeat(2048));
+    writeFileSync(join(root, "dist", "bundle.js"), "x".repeat(1024));
+    writeFileSync(join(root, "src", "app.js"), "código importante");
+    const report = scanCleanupDirectory(root);
+    assert.equal(report.items.find((item) => item.name === "node_modules").recommendation, "safe");
+    assert.equal(report.items.find((item) => item.name === "dist").recommendation, "review");
+    assert.equal(report.items.find((item) => item.name === "carpeta-vacia").kind, "empty");
+    assert.equal(report.items.find((item) => item.name === "src").recommendation, "keep");
+    assert.ok(report.recoverableBytes >= 3072);
+    assert.equal(require("node:fs").existsSync(join(root, "node_modules", "package", "index.js")), true);
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+});
+
 test("normaliza ajustes y descarta rutas o tipos no confiables", () => {
   const root = mkdtempSync(join(tmpdir(), "jota-settings-"));
   try {
@@ -146,6 +190,38 @@ test("normaliza ajustes y descarta rutas o tipos no confiables", () => {
     assert.equal(normalized.projectPlans[projectPaths[3]].phase, "abandoned");
     assert.equal(normalized.projectPlans[projectPaths[3]].focus, false);
     assert.equal(normalized.projectPlans[projectPaths[3]].lessonLearned, "validar antes");
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+});
+
+test("conserva tarjetas ocultas y enlaces públicos después de recargar ajustes", () => {
+  const root = mkdtempSync(join(tmpdir(), "jota-hidden-projects-"));
+  try {
+    const project = join(root, "Proyecto Persistente");
+    mkdirSync(project);
+    const defaults = {
+      projectPath: root,
+      autoCheckTools: true,
+      autoCheckLauncher: true,
+      startWithWindows: false,
+      language: "es",
+      projectRoots: [root],
+      projectPlans: {},
+      projectLinks: {},
+      hiddenProjects: [],
+    };
+    const saved = normalizeSettings({
+      ...defaults,
+      hiddenProjects: [project, project],
+      projectLinks: { [project]: "https://proyecto-persistente.vercel.app" },
+    }, defaults);
+    const restoredAfterUpdate = normalizeSettings(JSON.parse(JSON.stringify(saved)), defaults);
+
+    assert.deepEqual(restoredAfterUpdate.hiddenProjects, [project]);
+    assert.equal(restoredAfterUpdate.projectLinks[project], "https://proyecto-persistente.vercel.app/");
+    assert.equal(isProjectHidden(project.toUpperCase(), restoredAfterUpdate.hiddenProjects), true);
+    assert.equal(isProjectHidden(join(root, "Proyecto Nuevo"), restoredAfterUpdate.hiddenProjects), false);
   } finally {
     rmSync(root, { recursive: true, force: true });
   }

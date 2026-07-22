@@ -42,6 +42,18 @@ Jota AI Launcher does not pretend that GPT-5.6 is an invisible runtime dependenc
 
 Watch the [public Build Week video demo](https://youtu.be/Y2yW0IPqUFc) and read the complete [OpenAI Build Week submission and testing guide](./docs/OPENAI-BUILD-WEEK.md), including the development timeline, technical decisions, judging path, and public evidence.
 
+### What v0.6.0 adds
+
+- **Projects that are ready to open:** every card identifies whether it is a web app, desktop app, plugin, theme, library, service, website, or folder.
+- **Immediate public destination:** detects Vercel, Netlify, Render, Railway, Cloudflare, Firebase, and GitHub Pages deployments, allows corrections, and clearly shows when a project is not published yet.
+- **Folders by text or voice:** paste or dictate a path to choose where the launcher should search for projects.
+- **A controllable library:** hide cards without deleting files and restore them later from the search-locations menu.
+- **New Cleanup section:** inspects dependencies, caches, logs, builds, and empty folders while separating source code and protected configuration.
+- **Recoverable cleanup:** scanning never deletes anything; the final selection requires confirmation and goes to the system recycle bin.
+- **Security and tests:** microphone access is audio-only and limited to the main window, paths cross a validated IPC boundary, and dedicated tests cover public links and cleanup classification.
+
+Version `0.6.0` extends the existing library without removing Finish Desk, focus projects, checkpoints, or any other capability introduced in `0.5.0`.
+
 ### What improved in v0.5.0
 
 - **Finish Desk:** turns a project into a concrete work plan with an objective, next action, definition of done, phase, and deadline.
@@ -62,6 +74,8 @@ The launcher does not replace the agents or proxy communication between them and
 
 - One interface for Codex, Claude Code, and OpenCode.
 - Visual library that summarizes each project's purpose, stack, GitHub repository, and deployment.
+- Direct public link on every card, with Vercel, Netlify, and other destinations detected automatically or edited manually.
+- Cleanup inspector that separates safe leftovers, review-required output, and protected content before moving anything to the recycle bin.
 - Finish Desk for turning open-ended projects into concrete, finishable plans.
 - Local app, plugin, and folder detection even when no repository exists.
 - Automatic detection of versions, accounts, plugins, skills, and MCP servers.
@@ -122,7 +136,10 @@ The **Projects** section acts as a local memory for your work. It scans common d
 - **Use project:** makes the folder the active project and returns to the launch dashboard.
 - **Open folder:** opens the project in Windows Explorer or Finder.
 - **GitHub:** opens the repository when a valid remote is detected.
+- **View live:** opens the deployed app directly; cards without a link let you add Vercel, Netlify, or a custom domain.
+- **Remove card:** hides a project from the library without deleting its folder; hidden cards can be restored.
 - **Add folder:** includes another root folder where you keep projects.
+- **Type or dictate a path:** adds a search location by pasting its path or using the microphone.
 - **Remove folder:** stops scanning a manually added location.
 - **Find projects:** scans configured folders again.
 - **Plan in Finish Desk:** define the next step, phase, deadline, and definition of done.
@@ -142,6 +159,16 @@ The **Projects** section acts as a local memory for your work. It scans common d
 | Other repositories | `.git` |
 
 Cards also recognize common frameworks and services: React, Next.js, Vue, Nuxt, Svelte, Astro, Electron, Vite, Tailwind CSS, Supabase, Firebase, WordPress, Vercel, Netlify, Render, Railway, Cloudflare, and Docker. A project without Git still appears as a **Local folder** when it contains a README, code, a plugin, or recognizable design files.
+
+## Safe folder cleanup
+
+The **Cleanup** section analyzes a previously selected folder and groups its contents into three states:
+
+- **Safe:** dependencies, caches, and logs that can normally be regenerated.
+- **Review:** builds, release output, and empty folders that may still be useful.
+- **Protected:** source code, Git data, manifests, environment files, and other items the launcher does not allow you to select.
+
+The scan never deletes anything. Only safe or review-required items can be selected and, after a native confirmation, they are moved to the system recycle bin so they remain recoverable.
 
 The scan skips dependencies and generated output such as `node_modules`, `dist`, `build`, `release`, `.next`, `.nuxt`, `.venv`, `vendor`, `target`, `coverage`, and `.git`. To build each card it reads only bounded local metadata: README files, manifests, file names, and the Git remote. None of this information leaves the computer.
 
@@ -193,6 +220,7 @@ A new installation uses the system language when it is supported. The language c
 |---|---|
 | Launch | Choose the active project and start an agent |
 | Projects | Browse the local project library |
+| Cleanup | Inspect leftovers and move a reviewed selection to the recycle bin |
 | Accounts | View access status and open sign-in/sign-out flows |
 | Inventory | Inspect plugins, skills, and MCP servers |
 | Updates | Compare versions and open official updaters |

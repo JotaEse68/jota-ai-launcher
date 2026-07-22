@@ -10,7 +10,15 @@ export interface InventoryItem {
 }
 
 export type ProjectKind = "javascript" | "python" | "rust" | "go" | "dotnet" | "php" | "ruby" | "git" | "folder";
+export type ProjectType = "web-app" | "desktop-app" | "plugin" | "theme" | "library" | "service" | "website" | "folder";
 export type ProjectPhase = "backlog" | "building" | "testing" | "shipping" | "done" | "paused" | "abandoned";
+export type CleanupRecommendation = "safe" | "review" | "keep";
+export type CleanupKind = "dependencies" | "build" | "cache" | "logs" | "empty" | "protected";
+
+export function isProjectHidden(projectPath: string, hiddenProjects: string[]): boolean {
+  const identity = projectPath.replace(/[\\/]+$/, "").toLocaleLowerCase();
+  return hiddenProjects.some((path) => path.replace(/[\\/]+$/, "").toLocaleLowerCase() === identity);
+}
 
 export interface ProjectPlan {
   phase: ProjectPhase;
@@ -37,7 +45,29 @@ export interface ProjectInfo {
   technologies: string[];
   services: string[];
   repositoryUrl?: string;
+  publicUrl?: string;
+  deploymentService?: string;
+  projectType: ProjectType;
   source: "manifest" | "git" | "folder";
+}
+
+export interface CleanupItem {
+  path: string;
+  relativePath: string;
+  name: string;
+  kind: CleanupKind;
+  recommendation: CleanupRecommendation;
+  reason: string;
+  sizeBytes: number;
+  modifiedAt: string;
+}
+
+export interface CleanupReport {
+  root: string;
+  scannedAt: string;
+  items: CleanupItem[];
+  recoverableBytes: number;
+  truncated: boolean;
 }
 
 export interface ToolStatus {
@@ -74,6 +104,8 @@ export interface LauncherSettings {
   language: Language;
   projectRoots: string[];
   projectPlans: Record<string, ProjectPlan>;
+  projectLinks: Record<string, string>;
+  hiddenProjects: string[];
 }
 
 export interface ActionResult {
@@ -87,8 +119,11 @@ export interface LauncherBridge {
   saveSettings: (settings: LauncherSettings) => Promise<LauncherSettings>;
   selectProject: (language: Language) => Promise<string | null>;
   selectProjectRoot: (language: Language) => Promise<string | null>;
+  authorizeDirectory: (path: string) => Promise<ActionResult & { path?: string }>;
   scanProjects: () => Promise<{ projects: ProjectInfo[]; automaticRoots: string[] }>;
   openFolder: (path: string) => Promise<ActionResult>;
+  scanCleanup: (path: string) => Promise<CleanupReport>;
+  trashCleanupItems: (root: string, paths: string[], language: Language) => Promise<ActionResult>;
   runAction: (tool: ToolId, action: ToolAction, language: Language) => Promise<ActionResult>;
   openLink: (url: string) => Promise<void>;
   checkLauncherUpdate: (language: Language) => Promise<ActionResult>;

@@ -33,6 +33,18 @@ Jota AI Launcher no presenta GPT-5.6 como una dependencia oculta de ejecución. 
 
 Mira la [demostración pública de Build Week](https://youtu.be/Y2yW0IPqUFc), consulta la [candidatura y guía de pruebas de OpenAI Build Week](./docs/OPENAI-BUILD-WEEK.md) en inglés y la [memoria completa del proceso](./docs/PROCESO-DE-CREACION.md) en español.
 
+### Qué incorpora v0.6.0
+
+- **Proyectos listos para abrir:** cada tarjeta indica si es una app web, app de escritorio, plugin, tema, librería, servicio, sitio o carpeta.
+- **Enlace público inmediato:** detecta despliegues de Vercel, Netlify, Render, Railway, Cloudflare, Firebase y GitHub Pages, permite corregirlos y muestra claramente cuándo aún no existe publicación.
+- **Carpetas por texto o voz:** puedes pegar una ruta o dictarla para decidir dónde debe buscar proyectos el launcher.
+- **Biblioteca bajo control:** permite ocultar tarjetas sin borrar archivos y restaurarlas después desde las ubicaciones de búsqueda.
+- **Nueva sección Limpieza:** analiza dependencias, cachés, logs, compilaciones y carpetas vacías, separándolos de código y configuraciones protegidas.
+- **Borrado recuperable:** nada se elimina durante el análisis; la selección final requiere confirmación y se envía a la papelera del sistema.
+- **Seguridad y pruebas:** el micrófono solo autoriza audio en la ventana principal, las rutas pasan por validación IPC y la suite incluye pruebas específicas para enlaces y limpieza.
+
+La versión `0.6.0` amplía la biblioteca existente sin retirar la Mesa de cierre, los proyectos foco, los checkpoints ni las demás funciones introducidas en `0.5.0`.
+
 ### Qué mejoró en v0.5.0
 
 - **Mesa de cierre (Finish Desk):** convierte un proyecto en un plan de trabajo con objetivo, siguiente acción, definición de terminado, fase y fecha límite.
@@ -53,6 +65,8 @@ El launcher no sustituye a los agentes ni actúa como intermediario entre ellos 
 
 - Una sola interfaz para Codex, Claude Code y OpenCode.
 - Biblioteca visual que resume propósito, stack, GitHub y despliegue de cada proyecto.
+- Enlace público directo por tarjeta, con detección de Vercel, Netlify y otros destinos o edición manual.
+- Inspector de limpieza que separa restos seguros, elementos revisables y contenido protegido antes de enviarlo a la papelera.
 - Mesa de cierre para convertir proyectos abiertos en planes concretos y terminables.
 - Detección de apps, plugins y carpetas locales aunque no tengan repositorio.
 - Detección automática de versiones, cuentas, plugins, skills y MCP.
@@ -113,7 +127,10 @@ La sección **Proyectos** funciona como una memoria local de tu trabajo. Busca p
 - **Usar proyecto:** convierte esa carpeta en el proyecto activo y vuelve al panel de lanzamiento.
 - **Abrir carpeta:** abre el proyecto en el Explorador de Windows o Finder.
 - **GitHub:** abre el repositorio cuando se detecta un remoto válido.
+- **Ver publicado:** abre directamente la app desplegada; si no existe enlace, la tarjeta permite añadir uno de Vercel, Netlify o un dominio propio.
+- **Quitar tarjeta:** oculta un proyecto de la biblioteca sin borrar su carpeta; las tarjetas ocultas se pueden restaurar.
 - **Añadir carpeta:** incorpora otra carpeta raíz donde guardes proyectos.
+- **Escribir o dictar una ruta:** añade una ubicación pegando su ruta o usando el micrófono.
 - **Quitar carpeta:** deja de buscar dentro de una ubicación añadida manualmente.
 - **Buscar proyectos:** vuelve a escanear las carpetas configuradas.
 - **Planificar en la mesa de cierre:** define el siguiente paso, la fase, la fecha límite y la definición de terminado.
@@ -133,6 +150,16 @@ La sección **Proyectos** funciona como una memoria local de tu trabajo. Busca p
 | Otros repositorios | `.git` |
 
 Las tarjetas también reconocen frameworks y servicios frecuentes: React, Next.js, Vue, Nuxt, Svelte, Astro, Electron, Vite, Tailwind CSS, Supabase, Firebase, WordPress, Vercel, Netlify, Render, Railway, Cloudflare y Docker. Un proyecto sin Git sigue apareciendo como **Carpeta local** si contiene un README, código, un plugin o archivos de diseño reconocibles.
+
+## Limpieza segura de carpetas
+
+La sección **Limpieza** analiza una carpeta previamente seleccionada y agrupa sus elementos en tres estados:
+
+- **Seguro:** dependencias, cachés y registros que normalmente se pueden regenerar.
+- **Revisar:** compilaciones, entregas y carpetas vacías que pueden seguir siendo útiles.
+- **Protegido:** código fuente, Git, manifiestos, variables de entorno y otros elementos que el launcher no permite seleccionar.
+
+Nada se elimina durante el análisis. Solo los elementos marcados como seguros o revisables se pueden seleccionar y, tras una confirmación nativa, se envían a la papelera del sistema para que sigan siendo recuperables.
 
 El escaneo omite dependencias y resultados generados como `node_modules`, `dist`, `build`, `release`, `.next`, `.nuxt`, `.venv`, `vendor`, `target`, `coverage` y `.git`. Para elaborar la ficha solo lee metadatos locales acotados: README, manifiestos, nombres de archivos y el remoto de Git. No envía esa información fuera del ordenador.
 
@@ -184,6 +211,7 @@ En una instalación nueva se utiliza el idioma del sistema si está disponible. 
 |---|---|
 | Lanzar | Seleccionar el proyecto activo e iniciar un agente |
 | Proyectos | Navegar por la biblioteca local de proyectos |
+| Limpieza | Analizar restos y enviar una selección revisada a la papelera |
 | Cuentas | Ver el estado de acceso y abrir login/logout |
 | Inventario | Consultar plugins, skills y servidores MCP |
 | Actualizaciones | Comparar versiones y abrir actualizadores oficiales |
