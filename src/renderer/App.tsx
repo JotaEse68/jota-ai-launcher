@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
+import { isProjectHidden } from "../shared/types";
 import type { CleanupReport, Language, LauncherSettings, LauncherSnapshot, ProjectInfo, ProjectKind, ProjectPhase, ProjectPlan, ProjectType, ToolAction, ToolId, ToolStatus } from "../shared/types";
 import { LANGUAGES, translate, type Translator } from "./i18n";
 
@@ -462,10 +463,7 @@ export default function App() {
   const language = settings.language || "es";
   const t: Translator = (key, values) => translate(language, key, values);
   const tools = useMemo(() => snapshot?.tools || [], [snapshot]);
-  const visibleProjects = useMemo(() => {
-    const hidden = new Set((settings.hiddenProjects || []).map((path) => path.toLowerCase()));
-    return projects.filter((project) => !hidden.has(project.path.toLowerCase()));
-  }, [projects, settings.hiddenProjects]);
+  const visibleProjects = useMemo(() => projects.filter((project) => !isProjectHidden(project.path, settings.hiddenProjects || [])), [projects, settings.hiddenProjects]);
 
   const scan = async (includeLatest = false) => {
     setBusy(true);

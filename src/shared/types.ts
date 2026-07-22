@@ -15,6 +15,11 @@ export type ProjectPhase = "backlog" | "building" | "testing" | "shipping" | "do
 export type CleanupRecommendation = "safe" | "review" | "keep";
 export type CleanupKind = "dependencies" | "build" | "cache" | "logs" | "empty" | "protected";
 
+export function isProjectHidden(projectPath: string, hiddenProjects: string[]): boolean {
+  const identity = projectPath.replace(/[\\/]+$/, "").toLocaleLowerCase();
+  return hiddenProjects.some((path) => path.replace(/[\\/]+$/, "").toLocaleLowerCase() === identity);
+}
+
 export interface ProjectPlan {
   phase: ProjectPhase;
   deadline: string;

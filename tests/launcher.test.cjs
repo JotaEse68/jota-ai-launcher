@@ -5,6 +5,7 @@ const { tmpdir } = require("node:os");
 const { join } = require("node:path");
 const { TOOL_DEFINITIONS, TOOL_IDS } = require("../dist/main/definitions.js");
 const { buildSnapshot, discoverProjects, normalizeSettings, scanCleanupDirectory } = require("../dist/main/services.js");
+const { isProjectHidden } = require("../dist/shared/types.js");
 
 test("define los tres agentes sin credenciales incrustadas", () => {
   assert.deepEqual(TOOL_IDS, ["codex", "claude", "opencode"]);
@@ -189,6 +190,38 @@ test("normaliza ajustes y descarta rutas o tipos no confiables", () => {
     assert.equal(normalized.projectPlans[projectPaths[3]].phase, "abandoned");
     assert.equal(normalized.projectPlans[projectPaths[3]].focus, false);
     assert.equal(normalized.projectPlans[projectPaths[3]].lessonLearned, "validar antes");
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+});
+
+test("conserva tarjetas ocultas y enlaces públicos después de recargar ajustes", () => {
+  const root = mkdtempSync(join(tmpdir(), "jota-hidden-projects-"));
+  try {
+    const project = join(root, "Proyecto Persistente");
+    mkdirSync(project);
+    const defaults = {
+      projectPath: root,
+      autoCheckTools: true,
+      autoCheckLauncher: true,
+      startWithWindows: false,
+      language: "es",
+      projectRoots: [root],
+      projectPlans: {},
+      projectLinks: {},
+      hiddenProjects: [],
+    };
+    const saved = normalizeSettings({
+      ...defaults,
+      hiddenProjects: [project, project],
+      projectLinks: { [project]: "https://proyecto-persistente.vercel.app" },
+    }, defaults);
+    const restoredAfterUpdate = normalizeSettings(JSON.parse(JSON.stringify(saved)), defaults);
+
+    assert.deepEqual(restoredAfterUpdate.hiddenProjects, [project]);
+    assert.equal(restoredAfterUpdate.projectLinks[project], "https://proyecto-persistente.vercel.app/");
+    assert.equal(isProjectHidden(project.toUpperCase(), restoredAfterUpdate.hiddenProjects), true);
+    assert.equal(isProjectHidden(join(root, "Proyecto Nuevo"), restoredAfterUpdate.hiddenProjects), false);
   } finally {
     rmSync(root, { recursive: true, force: true });
   }
