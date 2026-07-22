@@ -1,10 +1,10 @@
 import { useEffect, useMemo, useState } from "react";
-import type { Language, LauncherSettings, LauncherSnapshot, ProjectInfo, ProjectKind, ProjectPhase, ProjectPlan, ToolAction, ToolId, ToolStatus } from "../shared/types";
+import type { CleanupReport, Language, LauncherSettings, LauncherSnapshot, ProjectInfo, ProjectKind, ProjectPhase, ProjectPlan, ProjectType, ToolAction, ToolId, ToolStatus } from "../shared/types";
 import { LANGUAGES, translate, type Translator } from "./i18n";
 
-type View = "launch" | "projects" | "accounts" | "inventory" | "updates" | "help";
+type View = "launch" | "projects" | "cleanup" | "accounts" | "inventory" | "updates" | "help";
 
-const APP_VERSION = "0.5.0";
+const APP_VERSION = "0.6.0";
 const EMPTY_SETTINGS: LauncherSettings = {
   projectPath: "",
   autoCheckTools: true,
@@ -13,11 +13,14 @@ const EMPTY_SETTINGS: LauncherSettings = {
   language: "es",
   projectRoots: [],
   projectPlans: {},
+  projectLinks: {},
+  hiddenProjects: [],
 };
 
-const NAV: Array<{ id: View; key: "navLaunch" | "navProjects" | "navAccounts" | "navInventory" | "navUpdates" | "navHelp"; glyph: string }> = [
+const NAV: Array<{ id: View; key: "navLaunch" | "navProjects" | "navCleanup" | "navAccounts" | "navInventory" | "navUpdates" | "navHelp"; glyph: string }> = [
   { id: "launch", key: "navLaunch", glyph: "▶" },
   { id: "projects", key: "navProjects", glyph: "◆" },
+  { id: "cleanup", key: "navCleanup", glyph: "⌁" },
   { id: "accounts", key: "navAccounts", glyph: "◎" },
   { id: "inventory", key: "navInventory", glyph: "▦" },
   { id: "updates", key: "navUpdates", glyph: "↻" },
@@ -92,6 +95,23 @@ const PROJECT_KINDS: Record<ProjectKind, { glyph: string; label: string }> = {
   javascript: { glyph: "JS", label: "JavaScript" }, python: { glyph: "PY", label: "Python" }, rust: { glyph: "RS", label: "Rust" },
   go: { glyph: "GO", label: "Go" }, dotnet: { glyph: ".N", label: ".NET" }, php: { glyph: "PHP", label: "PHP" }, ruby: { glyph: "RB", label: "Ruby" }, git: { glyph: "GIT", label: "Git" }, folder: { glyph: "DIR", label: "Folder" },
 };
+
+const PROJECT_TYPES: Record<ProjectType, string> = {
+  "web-app": "App web", "desktop-app": "App de escritorio", plugin: "Plugin", theme: "Tema", library: "Librería", service: "Servicio", website: "Sitio web", folder: "Carpeta",
+};
+
+function siteHost(url: string): string {
+  try { return new URL(url).hostname.replace(/^www\./, ""); } catch { return url; }
+}
+
+function formatBytes(bytes: number): string {
+  if (bytes < 1_024) return `${bytes} B`;
+  const units = ["KB", "MB", "GB", "TB"];
+  let value = bytes / 1_024;
+  let unit = units[0];
+  for (let index = 1; index < units.length && value >= 1_024; index += 1) { value /= 1_024; unit = units[index]; }
+  return `${value >= 10 ? value.toFixed(0) : value.toFixed(1)} ${unit}`;
+}
 
 type ProjectFilter = "all" | "focus" | "risk" | "unplanned" | "closed";
 
@@ -226,20 +246,61 @@ function SessionCloseEditor({ project, initialPlan, onCancel, onSave, t }: {
   </div>;
 }
 
-function ProjectsView({ projects, plans, customRoots, automaticRoots, busy, language, onAddRoot, onRemoveRoot, onScan, onSelect, onOpen, onLink, onSavePlan, t }: {
-  projects: ProjectInfo[]; plans: Record<string, ProjectPlan>; customRoots: string[]; automaticRoots: string[]; busy: boolean; language: Language; onAddRoot: () => void; onRemoveRoot: (root: string) => void;
-  onScan: () => void; onSelect: (project: ProjectInfo) => void; onOpen: (project: ProjectInfo) => void; onLink: (url: string) => void; onSavePlan: (project: ProjectInfo, plan: ProjectPlan, result?: "plan" | "checkpoint" | "abandoned") => void; t: Translator;
+function ProjectLinkEditor({ project, initialUrl, onCancel, onSave, t }: { project: ProjectInfo; initialUrl: string; onCancel: () => void; onSave: (url: string) => void; t: Translator }) {
+  const [url, setUrl] = useState(initialUrl);
+  const [error, setError] = useState("");
+  const submit = (event: React.FormEvent) => {
+    event.preventDefault();
+    const value = url.trim();
+    if (value) {
+      try { if (new URL(value).protocol !== "https:") throw new Error(); }
+      catch { setError(t("publicLinkInvalid")); return; }
+    }
+    onSave(value);
+  };
+  return <div className="dialog-backdrop" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget) onCancel(); }}>
+    <form className="plan-dialog link-dialog" onSubmit={submit} aria-modal="true" role="dialog">
+      <header><div><span className="eyebrow">{t("publicLinkEyebrow")}</span><h2>{project.name}</h2></div><button type="button" onClick={onCancel} aria-label={t("cancel")}>×</button></header>
+      <p className="plan-intro">{t("publicLinkHelp")}</p>
+      <label className="link-field"><span>{t("publicLinkLabel")}</span><input autoFocus value={url} onChange={(event) => { setUrl(event.target.value); setError(""); }} placeholder="https://mi-proyecto.vercel.app" />{error && <small>{error}</small>}</label>
+      <div className="deployment-hints"><span>Vercel</span><span>Netlify</span><span>Render</span><span>Cloudflare</span><span>{t("customDomain")}</span></div>
+      <footer><button type="button" className="text-button" onClick={onCancel}>{t("cancel")}</button>{initialUrl && <button type="button" className="text-button danger-text" onClick={() => onSave("")}>{t("removeLink")}</button>}<button type="submit" className="small-primary">{t("saveLink")}</button></footer>
+    </form>
+  </div>;
+}
+
+function ProjectsView({ projects, plans, projectLinks, hiddenCount, customRoots, automaticRoots, busy, language, onAddRoot, onAddRootPath, onRemoveRoot, onRestoreHidden, onScan, onSelect, onOpen, onLink, onSetLink, onHide, onSavePlan, t }: {
+  projects: ProjectInfo[]; plans: Record<string, ProjectPlan>; projectLinks: Record<string, string>; hiddenCount: number; customRoots: string[]; automaticRoots: string[]; busy: boolean; language: Language; onAddRoot: () => void; onAddRootPath: (path: string) => Promise<boolean>; onRemoveRoot: (root: string) => void; onRestoreHidden: () => void;
+  onScan: () => void; onSelect: (project: ProjectInfo) => void; onOpen: (project: ProjectInfo) => void; onLink: (url: string) => void; onSetLink: (project: ProjectInfo, url: string) => void; onHide: (project: ProjectInfo) => void; onSavePlan: (project: ProjectInfo, plan: ProjectPlan, result?: "plan" | "checkpoint" | "abandoned") => void; t: Translator;
 }) {
   const [query, setQuery] = useState("");
+  const [rootPath, setRootPath] = useState("");
+  const [listening, setListening] = useState(false);
   const [filter, setFilter] = useState<ProjectFilter>("all");
   const [editing, setEditing] = useState<ProjectInfo | null>(null);
   const [reflecting, setReflecting] = useState<ProjectInfo | null>(null);
+  const [linking, setLinking] = useState<ProjectInfo | null>(null);
+  const [hiding, setHiding] = useState<ProjectInfo | null>(null);
+  const addTypedRoot = async () => { if (await onAddRootPath(rootPath)) setRootPath(""); };
+  const dictateRoot = () => {
+    const Recognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+    if (!Recognition) return;
+    const recognition = new Recognition();
+    recognition.lang = language;
+    recognition.interimResults = false;
+    recognition.onstart = () => setListening(true);
+    recognition.onend = () => setListening(false);
+    recognition.onerror = () => setListening(false);
+    recognition.onresult = (event) => setRootPath(event.results[0]?.[0]?.transcript || "");
+    recognition.start();
+  };
   const focusProjects = projects.filter((project) => plans[project.path]?.focus && !["done", "paused", "abandoned"].includes(plans[project.path]?.phase)).sort((a, b) => (plans[a.path].deadline || "9999").localeCompare(plans[b.path].deadline || "9999"));
   const leadProject = focusProjects[0];
   const rankedProjects = projects.map((project) => ({ project, score: projectSearchScore(project, query) })).filter(({ project, score }) => score > 0 && (filter === "all" || (filter === "focus" && plans[project.path]?.focus) || (filter === "risk" && isPlanAtRisk(plans[project.path])) || (filter === "unplanned" && !plans[project.path]) || (filter === "closed" && ["done", "abandoned"].includes(plans[project.path]?.phase)))).sort((a, b) => b.score - a.score || Number(Boolean(plans[b.project.path]?.focus)) - Number(Boolean(plans[a.project.path]?.focus)) || Number(!["done", "abandoned"].includes(plans[b.project.path]?.phase)) - Number(!["done", "abandoned"].includes(plans[a.project.path]?.phase)) || b.project.updatedAt.localeCompare(a.project.updatedAt));
 
   return <section className="content-section projects-section">
     <header className="projects-heading"><div className="section-heading compact"><span className="eyebrow">{t("projectsEyebrow")}</span><h1>{t("projectsTitle")}</h1><p>{t("projectsIntro")}</p></div><div className="project-toolbar"><button className="small-primary" onClick={onAddRoot}>＋ {t("addProjectFolder")}</button><button className="refresh-button" onClick={onScan} disabled={busy}>{busy ? t("scanningProjects") : `↻ ${t("scanProjects")}`}</button></div></header>
+    <form className="location-command" onSubmit={(event) => { event.preventDefault(); void addTypedRoot(); }}><span className="command-prompt">›_</span><label><span>{t("folderCommandLabel")}</span><input value={rootPath} onChange={(event) => setRootPath(event.target.value)} placeholder={t("folderCommandPlaceholder")} /></label><button type="button" className={`voice-button ${listening ? "listening" : ""}`} onClick={dictateRoot} disabled={!window.SpeechRecognition && !window.webkitSpeechRecognition} title={t("dictateFolder")}>●</button><button type="submit" className="small-primary" disabled={!rootPath.trim()}>{t("searchHere")}</button></form>
     <aside className={`finish-desk ${leadProject ? "has-project" : ""}`}>
       <div className="finish-marker"><span>{focusProjects.length}</span><small>/ 3</small></div>
       {leadProject ? <><div className="finish-copy"><small>{t("finishNow")}</small><strong>{leadProject.name}</strong><p>{plans[leadProject.path].blocker ? `${t("blockedBy")}: ${plans[leadProject.path].blocker}` : plans[leadProject.path].nextAction || t("missingNextAction")}</p></div><div className="finish-meta"><span className={isPlanAtRisk(plans[leadProject.path]) ? "is-risk" : ""}>{deadlineLabel(plans[leadProject.path].deadline, language, t)}</span><div className="finish-actions"><button onClick={() => setReflecting(leadProject)}>{t("closeSession")}</button><button onClick={() => onSelect(leadProject)}>{t("continueProject")} →</button></div></div></> : <><div className="finish-copy"><small>{t("focusDesk")}</small><strong>{t("focusDeskEmpty")}</strong><p>{t("focusDeskEmptyText")}</p></div>{projects[0] && <button className="desk-plan-button" onClick={() => setEditing(projects[0])}>{t("planFirstProject")} →</button>}</>}
@@ -248,31 +309,86 @@ function ProjectsView({ projects, plans, customRoots, automaticRoots, busy, lang
       <label className="project-search"><span aria-hidden="true">⌕</span><input value={query} onChange={(event) => setQuery(event.target.value)} placeholder={t("projectSearchPlaceholder")} aria-label={t("searchProjectsLabel")} />{query && <button onClick={() => setQuery("")} aria-label={t("clearSearch")}>×</button>}</label>
       <div className="project-filters" aria-label={t("projectFilters")}>{(["all", "focus", "risk", "unplanned", "closed"] as ProjectFilter[]).map((item) => <button key={item} className={filter === item ? "active" : ""} onClick={() => setFilter(item)}>{t(item === "all" ? "filterAll" : item === "focus" ? "filterFocus" : item === "risk" ? "filterRisk" : item === "unplanned" ? "filterUnplanned" : "filterClosed")}</button>)}</div>
     </div>
-    <div className="project-summary"><strong>{query || filter !== "all" ? t("resultsCount", { count: rankedProjects.length }) : t("detectedProjects", { count: projects.length })}</strong><details><summary>{t("searchLocations")}</summary><div className="root-list"><span className="automatic-root">{t("automaticLocations")} · {automaticRoots.length}</span>{customRoots.map((root) => <span className="root-chip" key={root} title={root}>{shortPath(root)}<button aria-label={`${t("removeRoot")} ${root}`} onClick={() => onRemoveRoot(root)}>×</button></span>)}</div></details></div>
+    <div className="project-summary"><strong>{query || filter !== "all" ? t("resultsCount", { count: rankedProjects.length }) : t("detectedProjects", { count: projects.length })}</strong><details><summary>{t("searchLocations")}</summary><div className="root-list"><span className="automatic-root">{t("automaticLocations")} · {automaticRoots.length}</span>{customRoots.map((root) => <span className="root-chip" key={root} title={root}>{shortPath(root)}<button aria-label={`${t("removeRoot")} ${root}`} onClick={() => onRemoveRoot(root)}>×</button></span>)}{hiddenCount > 0 && <button className="restore-hidden" onClick={onRestoreHidden}>{t("restoreHidden", { count: hiddenCount })}</button>}</div></details></div>
     {busy && !projects.length ? <div className="project-grid"><LoadingCards /></div> : rankedProjects.length ? <div className="project-grid">{rankedProjects.map(({ project }) => {
       const kind = PROJECT_KINDS[project.kind];
       const plan = plans[project.path];
+      const publicUrl = projectLinks[project.path] || project.publicUrl || "";
       const visibleTechnologies = project.technologies.slice(0, 4);
       const remainingTechnologies = project.technologies.length - visibleTechnologies.length;
       return <article className={`project-card kind-${project.kind} ${plan?.focus ? "is-focus" : ""}`} key={project.path}>
         <button className="project-card-main" onClick={() => onSelect(project)}>
           <span className="project-visual"><i>{kind.glyph}</i>{plan && <span className={`phase-badge ${isPlanAtRisk(plan) ? "risk" : ""}`}>{plan.focus ? "● " : ""}{t(`phase${plan.phase[0].toUpperCase()}${plan.phase.slice(1)}` as Parameters<Translator>[0])}</span>}<span className="project-service-list">{project.services.slice(0, 2).map((service) => <b key={service}>{service}</b>)}{!project.services.length && <b>{t("localFolder")}</b>}</span></span>
           <span className="project-copy">
-            <small>{project.source === "folder" ? t("localFolder") : kind.label} · {project.marker}</small>
+            <small>{PROJECT_TYPES[project.projectType]} · {project.source === "folder" ? t("localFolder") : kind.label}</small>
             <strong>{project.name}</strong>
             <span className="project-description">{project.description || t("noProjectDescription")}</span>
             {plan && <span className={`project-next ${plan.phase === "abandoned" ? "is-released" : ""}`}><b>{plan.phase === "abandoned" ? t("whyStopped") : plan.phase === "done" ? t("doneMeans") : t("next")}</b>{plan.phase === "abandoned" ? plan.abandonedReason || t("noReasonRecorded") : plan.phase === "done" ? plan.definitionOfDone || t("phaseDone") : plan.nextAction || t("missingNextAction")}</span>}
             {plan?.lastSessionAt && plan.phase !== "abandoned" && <span className="last-checkpoint">{t("lastCheckpoint")} · {new Intl.DateTimeFormat(language, { day: "numeric", month: "short" }).format(new Date(plan.lastSessionAt))}</span>}
+            <span className={`project-site-status ${publicUrl ? "is-live" : "is-missing"}`}><i>{publicUrl ? "↗" : "—"}</i><span><b>{publicUrl ? project.deploymentService || t("publishedProject") : t("noPublicLink")}</b><small>{publicUrl ? siteHost(publicUrl) : t("addLinkHint")}</small></span></span>
             {!!visibleTechnologies.length && <span className="project-tags">{visibleTechnologies.map((technology) => <i key={technology}>{technology}</i>)}{remainingTechnologies > 0 && <i>+{remainingTechnologies}</i>}</span>}
             <span className="project-path" title={project.path}>{shortPath(project.path)}</span>
           </span>
           <span className="project-use">{t("useProject")} <b>→</b></span>
         </button>
-        <span className="project-card-actions"><button className="project-checkin" onClick={() => setReflecting(project)}>{plan?.phase === "abandoned" ? t("reviewExit") : t("session")}</button><button className="project-plan" onClick={() => setEditing(project)}>{plan ? t("editPlan") : t("planProject")}</button>{project.repositoryUrl && <button className="project-repository" onClick={() => onLink(project.repositoryUrl!)}>GitHub ↗</button>}<button className="project-open" onClick={() => onOpen(project)}>{t("openFolder")} ↗</button></span>
+        <span className="project-destination"><button className={publicUrl ? "site-launch" : "site-missing"} onClick={() => publicUrl ? onLink(publicUrl) : setLinking(project)}>{publicUrl ? `${t("openPublished")} ↗` : `＋ ${t("addPublicLink")}`}</button>{publicUrl && <button className="edit-site" onClick={() => setLinking(project)}>{t("editLink")}</button>}{project.repositoryUrl && <button className="repo-launch" onClick={() => onLink(project.repositoryUrl!)}>GitHub ↗</button>}</span>
+        <span className="project-card-actions"><button className="project-checkin" onClick={() => setReflecting(project)}>{plan?.phase === "abandoned" ? t("reviewExit") : t("session")}</button><button className="project-plan" onClick={() => setEditing(project)}>{plan ? t("editPlan") : t("planProject")}</button><button className="project-open" onClick={() => onOpen(project)}>{t("openFolder")} ↗</button><button className="project-hide" onClick={() => setHiding(project)} title={t("hideCard")}>×</button></span>
       </article>;
     })}</div> : projects.length ? <div className="projects-empty search-empty"><span>⌕</span><div><h2>{t("noSearchTitle")}</h2><p>{t("noSearchText")}</p></div><button className="refresh-button" onClick={() => { setQuery(""); setFilter("all"); }}>{t("clearSearch")}</button></div> : <div className="projects-empty"><span>◇</span><div><h2>{t("noProjectsTitle")}</h2><p>{t("noProjectsText")}</p></div><button className="small-primary" onClick={onAddRoot}>{t("addProjectFolder")}</button></div>}
     {editing && <ProjectPlanEditor project={editing} initialPlan={plans[editing.path]} focusCount={focusProjects.length} language={language} onCancel={() => setEditing(null)} onSave={(plan) => { onSavePlan(editing, plan, "plan"); setEditing(null); }} t={t} />}
     {reflecting && <SessionCloseEditor project={reflecting} initialPlan={plans[reflecting.path]} onCancel={() => setReflecting(null)} onSave={(plan, abandoned) => { onSavePlan(reflecting, plan, abandoned ? "abandoned" : "checkpoint"); setReflecting(null); }} t={t} />}
+    {linking && <ProjectLinkEditor project={linking} initialUrl={projectLinks[linking.path] || linking.publicUrl || ""} onCancel={() => setLinking(null)} onSave={(url) => { onSetLink(linking, url); setLinking(null); }} t={t} />}
+    {hiding && <div className="dialog-backdrop" role="presentation"><div className="confirm-card-dialog" role="dialog" aria-modal="true"><span className="confirm-icon">◇</span><h2>{t("hideCardTitle")}</h2><p>{t("hideCardText", { name: hiding.name })}</p><footer><button className="text-button" onClick={() => setHiding(null)}>{t("cancel")}</button><button className="hide-confirm" onClick={() => { onHide(hiding); setHiding(null); }}>{t("hideCardConfirm")}</button></footer></div></div>}
+  </section>;
+}
+
+function CleanupView({ initialRoot, language, onChooseRoot, onAuthorizeRoot, onNotice, t }: { initialRoot: string; language: Language; onChooseRoot: () => Promise<string | null>; onAuthorizeRoot: (path: string) => Promise<string | null>; onNotice: (message: string) => void; t: Translator }) {
+  const [root, setRoot] = useState(initialRoot);
+  const [report, setReport] = useState<CleanupReport | null>(null);
+  const [selected, setSelected] = useState<Set<string>>(new Set());
+  const [busy, setBusy] = useState(false);
+  useEffect(() => { if (!root && initialRoot) setRoot(initialRoot); }, [initialRoot]);
+
+  const analyze = async (requestedRoot = root) => {
+    if (!requestedRoot.trim()) return;
+    setBusy(true);
+    try {
+      const authorized = await onAuthorizeRoot(requestedRoot);
+      if (!authorized) return;
+      setRoot(authorized);
+      const next = await window.launcher.scanCleanup(authorized);
+      setReport(next);
+      setSelected(new Set(next.items.filter((item) => item.recommendation === "safe").map((item) => item.path)));
+    } catch (error) { onNotice(error instanceof Error ? error.message : t("cleanupError")); }
+    finally { setBusy(false); }
+  };
+  const choose = async () => { const chosen = await onChooseRoot(); if (chosen) { setRoot(chosen); await analyze(chosen); } };
+  const trash = async () => {
+    if (!report || !selected.size) return;
+    setBusy(true);
+    try {
+      const result = await window.launcher.trashCleanupItems(report.root, [...selected], language);
+      onNotice(result.message);
+      if (result.ok) {
+        const next = await window.launcher.scanCleanup(report.root);
+        setReport(next);
+        setSelected(new Set(next.items.filter((item) => item.recommendation === "safe").map((item) => item.path)));
+      }
+    } finally { setBusy(false); }
+  };
+  const toggle = (path: string) => setSelected((current) => { const next = new Set(current); if (next.has(path)) next.delete(path); else next.add(path); return next; });
+  const selectedBytes = report?.items.filter((item) => selected.has(item.path)).reduce((sum, item) => sum + item.sizeBytes, 0) || 0;
+  const counts = report ? { safe: report.items.filter((item) => item.recommendation === "safe").length, review: report.items.filter((item) => item.recommendation === "review").length, keep: report.items.filter((item) => item.recommendation === "keep").length } : { safe: 0, review: 0, keep: 0 };
+
+  return <section className="content-section cleanup-section">
+    <header className="section-heading cleanup-heading"><span className="eyebrow">{t("cleanupEyebrow")}</span><h1>{t("cleanupTitle")}</h1><p>{t("cleanupIntro")}</p></header>
+    <div className="cleanup-console"><div className="cleanup-orbit" aria-hidden="true"><span>⌁</span></div><div className="cleanup-path-control"><label><span>{t("folderToAnalyze")}</span><input value={root} onChange={(event) => setRoot(event.target.value)} placeholder="C:\\Users\\…\\mi-proyecto" /></label><div><button className="refresh-button" onClick={() => void choose()}>{t("chooseFolder")}</button><button className="small-primary" disabled={busy || !root.trim()} onClick={() => void analyze()}>{busy ? t("analyzing") : t("analyzeFolder")}</button></div></div></div>
+    {!report ? <div className="cleanup-onboarding"><article><span>01</span><b>{t("cleanupStepScan")}</b><p>{t("cleanupStepScanText")}</p></article><article><span>02</span><b>{t("cleanupStepReview")}</b><p>{t("cleanupStepReviewText")}</p></article><article><span>03</span><b>{t("cleanupStepTrash")}</b><p>{t("cleanupStepTrashText")}</p></article></div> : <>
+      <div className="cleanup-summary"><div><small>{t("recoverableSpace")}</small><strong>{formatBytes(report.recoverableBytes)}</strong><span title={report.root}>{shortPath(report.root)}</span></div><span className="cleanup-count safe"><b>{counts.safe}</b>{t("safeToClean")}</span><span className="cleanup-count review"><b>{counts.review}</b>{t("reviewFirst")}</span><span className="cleanup-count keep"><b>{counts.keep}</b>{t("protectedItems")}</span></div>
+      {report.items.length ? <div className="cleanup-ledger">{report.items.map((item) => <label className={`cleanup-row ${item.recommendation}`} key={item.path}><span className="cleanup-selector">{item.recommendation === "keep" ? <i>◆</i> : <input type="checkbox" checked={selected.has(item.path)} onChange={() => toggle(item.path)} />}</span><span className="cleanup-kind">{item.kind === "dependencies" ? "DEP" : item.kind === "build" ? "BLD" : item.kind === "cache" ? "CCH" : item.kind === "logs" ? "LOG" : item.kind === "empty" ? "Ø" : "LOCK"}</span><span className="cleanup-item-copy"><b>{item.relativePath}</b><small>{item.reason}</small></span><span className="cleanup-size">{item.sizeBytes ? formatBytes(item.sizeBytes) : "—"}</span><span className="cleanup-verdict">{item.recommendation === "safe" ? t("safeToClean") : item.recommendation === "review" ? t("reviewFirst") : t("doNotDelete")}</span></label>)}</div> : <div className="cleanup-empty"><span>✓</span><h2>{t("nothingToClean")}</h2><p>{t("nothingToCleanText")}</p></div>}
+      {report.truncated && <p className="cleanup-truncated">{t("cleanupTruncated")}</p>}
+      <div className="cleanup-actionbar"><div><b>{t("selectedItems", { count: selected.size })}</b><span>{formatBytes(selectedBytes)} · {t("recycleBinNote")}</span></div><button className="trash-button" disabled={busy || !selected.size} onClick={() => void trash()}>{t("moveToTrash")}</button></div>
+    </>}
   </section>;
 }
 
@@ -346,6 +462,10 @@ export default function App() {
   const language = settings.language || "es";
   const t: Translator = (key, values) => translate(language, key, values);
   const tools = useMemo(() => snapshot?.tools || [], [snapshot]);
+  const visibleProjects = useMemo(() => {
+    const hidden = new Set((settings.hiddenProjects || []).map((path) => path.toLowerCase()));
+    return projects.filter((project) => !hidden.has(project.path.toLowerCase()));
+  }, [projects, settings.hiddenProjects]);
 
   const scan = async (includeLatest = false) => {
     setBusy(true);
@@ -396,6 +516,14 @@ export default function App() {
     await saveSettings({ ...settings, projectRoots: nextRoots });
     await refreshProjects();
   };
+  const addProjectRootPath = async (path: string): Promise<boolean> => {
+    const result = await window.launcher.authorizeDirectory(path);
+    if (!result.ok || !result.path) { setNotice(result.message); return false; }
+    const nextRoots = [...new Map([...(settings.projectRoots || []), result.path].map((item) => [item.toLowerCase(), item])).values()];
+    await saveSettings({ ...settings, projectRoots: nextRoots }, t("searchFolderAdded"));
+    await refreshProjects();
+    return true;
+  };
   const removeProjectRoot = async (root: string) => {
     await saveSettings({ ...settings, projectRoots: settings.projectRoots.filter((item) => item !== root) });
     await refreshProjects();
@@ -412,9 +540,26 @@ export default function App() {
     const messageKey = result === "checkpoint" ? "checkpointSaved" : result === "abandoned" ? "projectReleased" : "projectPlanSaved";
     await saveSettings({ ...settings, projectPlans: { ...(settings.projectPlans || {}), [project.path]: plan } }, t(messageKey, { name: project.name }));
   };
+  const setProjectLink = async (project: ProjectInfo, url: string) => {
+    const projectLinks = { ...(settings.projectLinks || {}) };
+    if (url) projectLinks[project.path] = url;
+    else delete projectLinks[project.path];
+    await saveSettings({ ...settings, projectLinks }, url ? t("publicLinkSaved", { name: project.name }) : t("publicLinkRemoved", { name: project.name }));
+  };
+  const hideProject = async (project: ProjectInfo) => {
+    const hiddenProjects = [...new Map([...(settings.hiddenProjects || []), project.path].map((path) => [path.toLowerCase(), path])).values()];
+    await saveSettings({ ...settings, hiddenProjects }, t("cardHidden", { name: project.name }));
+  };
+  const restoreHiddenProjects = async () => saveSettings({ ...settings, hiddenProjects: [] }, t("hiddenRestored"));
+  const authorizeDirectory = async (path: string): Promise<string | null> => {
+    const result = await window.launcher.authorizeDirectory(path);
+    if (!result.ok || !result.path) { setNotice(result.message); return null; }
+    return result.path;
+  };
+  const chooseCleanupRoot = async () => window.launcher.selectProject(language);
   const runAction = async (tool: ToolId, action: ToolAction) => setNotice((await window.launcher.runAction(tool, action, language)).message);
   const selfUpdate = async () => setNotice((await window.launcher.checkLauncherUpdate(language)).message);
-  const openLink = (url: string) => void window.launcher.openLink(url);
+  const openLink = (url: string) => void window.launcher.openLink(url).catch((error) => setNotice(error instanceof Error ? error.message : t("publicLinkInvalid")));
   const platformName = snapshot?.platform === "macos" ? "macOS" : snapshot?.platform === "windows" ? "Windows" : "Desktop";
   const activeNav = NAV.find((item) => item.id === view);
 
@@ -436,7 +581,8 @@ export default function App() {
       <header className="topbar"><div className="breadcrumb"><span>{t("localPanel")}</span><b>/</b><strong>{activeNav ? t(activeNav.key) : ""}</strong></div><div className="topbar-actions"><label className="language-picker"><span>{t("language")}</span><select aria-label={t("language")} value={language} onChange={(event) => { const nextLanguage = event.target.value as Language; void saveSettings({ ...settings, language: nextLanguage }, translate(nextLanguage, "settingsSaved")); }}>{LANGUAGES.map((item) => <option value={item.code} key={item.code}>{item.label}</option>)}</select></label><button className="refresh-button" onClick={() => void scan(true)} disabled={busy}>{busy ? t("checking") : `↻ ${t("refreshStatus")}`}</button></div></header>
       <div className="page-content">
         {view === "launch" && <LaunchView snapshot={snapshot} settings={settings} onChoose={chooseProject} onAction={runAction} t={t} />}
-        {view === "projects" && <ProjectsView projects={projects} plans={settings.projectPlans || {}} customRoots={settings.projectRoots || []} automaticRoots={automaticRoots} busy={projectsBusy} language={language} onAddRoot={addProjectRoot} onRemoveRoot={removeProjectRoot} onScan={() => void refreshProjects()} onSelect={selectLibraryProject} onOpen={openProjectFolder} onLink={openLink} onSavePlan={saveProjectPlan} t={t} />}
+        {view === "projects" && <ProjectsView projects={visibleProjects} plans={settings.projectPlans || {}} projectLinks={settings.projectLinks || {}} hiddenCount={(settings.hiddenProjects || []).length} customRoots={settings.projectRoots || []} automaticRoots={automaticRoots} busy={projectsBusy} language={language} onAddRoot={addProjectRoot} onAddRootPath={addProjectRootPath} onRemoveRoot={removeProjectRoot} onRestoreHidden={restoreHiddenProjects} onScan={() => void refreshProjects()} onSelect={selectLibraryProject} onOpen={openProjectFolder} onLink={openLink} onSetLink={setProjectLink} onHide={hideProject} onSavePlan={saveProjectPlan} t={t} />}
+        {view === "cleanup" && <CleanupView initialRoot={settings.projectPath} language={language} onChooseRoot={chooseCleanupRoot} onAuthorizeRoot={authorizeDirectory} onNotice={setNotice} t={t} />}
         {view === "accounts" && <AccountsView tools={tools} onAction={runAction} onLink={openLink} t={t} />}
         {view === "inventory" && <InventoryView tools={tools} onLink={openLink} t={t} />}
         {view === "updates" && <UpdatesView tools={tools} busy={busy} onScan={() => void scan(true)} onAction={runAction} onSelfUpdate={selfUpdate} t={t} />}

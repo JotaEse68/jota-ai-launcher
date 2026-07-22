@@ -6,12 +6,15 @@ import { basename, isAbsolute, join, relative } from "node:path";
 import { promisify } from "node:util";
 import type {
   ActionResult,
+  CleanupItem,
+  CleanupReport,
   InventoryItem,
   Language,
   LauncherSettings,
   LauncherSnapshot,
   ProjectInfo,
   ProjectKind,
+  ProjectType,
   ProjectPhase,
   ProjectPlan,
   ToolAction,
@@ -207,6 +210,45 @@ function repositoryUrl(directory: string, packageJson: Record<string, unknown> |
   return githubUrl(remote);
 }
 
+const PUBLIC_DEPLOYMENT_HOSTS = ["vercel.app", "netlify.app", "onrender.com", "railway.app", "pages.dev", "web.app", "firebaseapp.com", "github.io"];
+
+function safePublicUrl(value: unknown): string | undefined {
+  if (typeof value !== "string") return undefined;
+  try {
+    const candidate = value.trim().replace(/[),.;]+$/, "");
+    const parsed = new URL(candidate);
+    if (parsed.protocol !== "https:" || parsed.username || parsed.password || parsed.hostname === "github.com") return undefined;
+    return parsed.toString();
+  } catch {
+    return undefined;
+  }
+}
+
+function deploymentService(url: string): string {
+  const hostname = new URL(url).hostname.toLowerCase();
+  if (hostname === "vercel.app" || hostname.endsWith(".vercel.app")) return "Vercel";
+  if (hostname === "netlify.app" || hostname.endsWith(".netlify.app")) return "Netlify";
+  if (hostname === "onrender.com" || hostname.endsWith(".onrender.com")) return "Render";
+  if (hostname === "railway.app" || hostname.endsWith(".railway.app")) return "Railway";
+  if (hostname === "pages.dev" || hostname.endsWith(".pages.dev")) return "Cloudflare";
+  if (hostname.endsWith(".web.app") || hostname.endsWith(".firebaseapp.com")) return "Firebase";
+  if (hostname.endsWith(".github.io")) return "GitHub Pages";
+  return "Web";
+}
+
+function detectPublicUrl(directory: string, entries: string[], packageJson: Record<string, unknown> | null): string | undefined {
+  const homepage = safePublicUrl(packageJson?.homepage);
+  if (homepage) return homepage;
+  const readme = entries.find((entry) => README_NAMES.has(entry.toLowerCase()));
+  if (!readme) return undefined;
+  const urls = safeText(directory, readme).match(/https:\/\/[^\s<>"']+/g) || [];
+  return urls.map(safePublicUrl).find((url) => {
+    if (!url) return false;
+    const hostname = new URL(url).hostname.toLowerCase();
+    return PUBLIC_DEPLOYMENT_HOSTS.some((host) => hostname === host || hostname.endsWith(`.${host}`));
+  });
+}
+
 function addDependencyTechnology(technologies: Set<string>, dependencies: Set<string>): void {
   const rules: Array<[string, string[]]> = [
     ["Next.js", ["next"]], ["React", ["react"]], ["Vue", ["vue"]], ["Nuxt", ["nuxt"]], ["SvelteKit", ["@sveltejs/kit"]],
@@ -217,7 +259,7 @@ function addDependencyTechnology(technologies: Set<string>, dependencies: Set<st
   for (const [label, packages] of rules) if (packages.some((name) => dependencies.has(name))) technologies.add(label);
 }
 
-function detectProjectMetadata(directory: string, entries: string[], kind: ProjectKind, packageJson: Record<string, unknown> | null): Pick<ProjectInfo, "description" | "technologies" | "services" | "repositoryUrl"> {
+function detectProjectMetadata(directory: string, entries: string[], kind: ProjectKind, packageJson: Record<string, unknown> | null): Pick<ProjectInfo, "description" | "technologies" | "services" | "repositoryUrl" | "publicUrl" | "deploymentService" | "projectType"> {
   const lowerNames = new Set(entries.map((entry) => entry.toLowerCase()));
   const technologies = new Set<string>();
   const services = new Set<string>();
@@ -258,7 +300,18 @@ function detectProjectMetadata(directory: string, entries: string[], kind: Proje
   const packageDescription = typeof packageJson?.description === "string" ? cleanMarkdown(packageJson.description) : "";
   const pluginDescription = phpHeader.match(/Description\s*:\s*([^\r\n]+)/i)?.[1]?.trim();
   const description = readmeDescription(directory, entries) || (packageDescription ? truncateDescription(packageDescription) : undefined) || (pluginDescription ? truncateDescription(pluginDescription) : undefined);
-  return { description, technologies: [...technologies].slice(0, 12), services: [...services], repositoryUrl: repo };
+  const publicUrl = detectPublicUrl(directory, entries, packageJson);
+  const detectedDeployment = publicUrl ? deploymentService(publicUrl) : undefined;
+  if (detectedDeployment && detectedDeployment !== "Web") services.add(detectedDeployment);
+  let projectType: ProjectType = "folder";
+  if (technologies.has("WordPress Plugin")) projectType = "plugin";
+  else if (technologies.has("WordPress Theme")) projectType = "theme";
+  else if (technologies.has("Electron")) projectType = "desktop-app";
+  else if (["Next.js", "React", "Vue", "Nuxt", "SvelteKit", "Svelte", "Astro"].some((name) => technologies.has(name))) projectType = "web-app";
+  else if (technologies.has("HTML")) projectType = "website";
+  else if (packageJson && (typeof packageJson.main === "string" || typeof packageJson.exports === "object")) projectType = "library";
+  else if (kind !== "folder" && kind !== "git") projectType = "service";
+  return { description, technologies: [...technologies].slice(0, 12), services: [...services], repositoryUrl: repo, publicUrl, deploymentService: detectedDeployment, projectType };
 }
 
 function genericKind(entries: string[]): ProjectKind {
@@ -350,6 +403,84 @@ export function scanProjectLibrary(customRoots: string[]): { projects: ProjectIn
   for (const project of [...discoverProjects(automaticRoots, 3), ...discoverProjects(customRoots, 3, true)]) combined.set(project.path.toLowerCase(), project);
   const projects = [...combined.values()].sort((a, b) => b.updatedAt.localeCompare(a.updatedAt) || a.name.localeCompare(b.name));
   return { projects, automaticRoots };
+}
+
+const SAFE_CLEANUP_DIRECTORIES = new Map<string, CleanupItem["kind"]>([
+  ["node_modules", "dependencies"], [".venv", "dependencies"], ["venv", "dependencies"], ["__pycache__", "cache"],
+  [".pytest_cache", "cache"], [".mypy_cache", "cache"], [".ruff_cache", "cache"], [".cache", "cache"],
+  [".turbo", "cache"], [".parcel-cache", "cache"], [".vite", "cache"],
+]);
+const REVIEW_CLEANUP_DIRECTORIES = new Map<string, CleanupItem["kind"]>([
+  ["dist", "build"], ["build", "build"], ["release", "build"], ["out", "build"], [".next", "build"],
+  [".nuxt", "build"], ["target", "build"], ["coverage", "build"],
+]);
+const PROTECTED_NAMES = new Set([".git", "src", "app", "public", "assets", ".env", ".env.local", "package.json", "package-lock.json", "pnpm-lock.yaml", "yarn.lock", "readme.md"]);
+
+function directorySize(directory: string, limit = 75_000): { bytes: number; truncated: boolean } {
+  const stack = [directory];
+  let bytes = 0;
+  let seen = 0;
+  while (stack.length && seen < limit) {
+    const current = stack.pop()!;
+    let entries;
+    try { entries = readdirSync(current, { withFileTypes: true }); } catch { continue; }
+    for (const entry of entries) {
+      seen += 1;
+      if (seen >= limit) break;
+      const entryPath = join(current, entry.name);
+      if (entry.isSymbolicLink()) continue;
+      if (entry.isDirectory()) stack.push(entryPath);
+      else if (entry.isFile()) try { bytes += lstatSync(entryPath).size; } catch { /* File changed while scanning. */ }
+    }
+  }
+  return { bytes, truncated: stack.length > 0 || seen >= limit };
+}
+
+function cleanupItem(root: string, itemPath: string, kind: CleanupItem["kind"], recommendation: CleanupItem["recommendation"], reason: string, sizeBytes?: number): CleanupItem {
+  let modifiedAt = new Date(0).toISOString();
+  try { modifiedAt = lstatSync(itemPath).mtime.toISOString(); } catch { /* Item may disappear during the scan. */ }
+  return { path: itemPath, relativePath: relative(root, itemPath) || basename(itemPath), name: basename(itemPath), kind, recommendation, reason, sizeBytes: sizeBytes ?? directorySize(itemPath).bytes, modifiedAt };
+}
+
+export function scanCleanupDirectory(requestedRoot: string): CleanupReport {
+  const root = realpathSync(requestedRoot);
+  const items: CleanupItem[] = [];
+  const queue = [root];
+  let visited = 0;
+  let truncated = false;
+  while (queue.length && visited < 8_000 && items.length < 500) {
+    const directory = queue.shift()!;
+    visited += 1;
+    let entries;
+    try { entries = readdirSync(directory, { withFileTypes: true }); } catch { continue; }
+    if (directory !== root && entries.length === 0) {
+      items.push(cleanupItem(root, directory, "empty", "review", "Carpeta vacía; revisa si aún la necesitas.", 0));
+      continue;
+    }
+    for (const entry of entries) {
+      const entryPath = join(directory, entry.name);
+      const lower = entry.name.toLowerCase();
+      if (entry.isSymbolicLink()) continue;
+      if (directory === root && PROTECTED_NAMES.has(lower)) {
+        items.push(cleanupItem(root, entryPath, "protected", "keep", "Contenido del proyecto: no se propone eliminar.", entry.isFile() ? lstatSync(entryPath).size : 0));
+        continue;
+      }
+      if (entry.isDirectory()) {
+        const safeKind = SAFE_CLEANUP_DIRECTORIES.get(lower);
+        const reviewKind = REVIEW_CLEANUP_DIRECTORIES.get(lower);
+        if (safeKind) items.push(cleanupItem(root, entryPath, safeKind, "safe", "Se vuelve a generar al instalar o ejecutar el proyecto."));
+        else if (reviewKind) items.push(cleanupItem(root, entryPath, reviewKind, "review", "Salida generada; confirma que no sea una entrega que quieras conservar."));
+        else queue.push(entryPath);
+      } else if (entry.isFile() && (/\.log(?:\.\d+)?$/i.test(entry.name) || /^(?:npm-debug|yarn-error|pnpm-debug).*\.log$/i.test(entry.name) || /^(?:thumbs\.db|\.ds_store)$/i.test(entry.name))) {
+        let size = 0;
+        try { size = lstatSync(entryPath).size; } catch { /* File changed. */ }
+        items.push(cleanupItem(root, entryPath, "logs", "safe", "Registro o archivo temporal prescindible.", size));
+      }
+    }
+  }
+  if (queue.length || items.length >= 500) truncated = true;
+  items.sort((a, b) => ({ safe: 0, review: 1, keep: 2 }[a.recommendation] - ({ safe: 0, review: 1, keep: 2 }[b.recommendation]) || b.sizeBytes - a.sizeBytes));
+  return { root, scannedAt: new Date().toISOString(), items, recoverableBytes: items.filter((item) => item.recommendation !== "keep").reduce((sum, item) => sum + item.sizeBytes, 0), truncated };
 }
 
 function firstVersion(output: string): string | undefined {
@@ -568,6 +699,8 @@ function defaultSettings(): LauncherSettings {
     language: normalizeLanguage(app.getLocale()),
     projectRoots: [],
     projectPlans: {},
+    projectLinks: {},
+    hiddenProjects: [],
   };
 }
 
@@ -588,6 +721,7 @@ export function normalizeSettings(value: unknown, defaults = defaultSettings()):
   const roots = Array.isArray(settings.projectRoots) ? settings.projectRoots : [];
   const validPhases = new Set<ProjectPhase>(["backlog", "building", "testing", "shipping", "done", "paused", "abandoned"]);
   const plans: Record<string, ProjectPlan> = {};
+  const projectLinks: Record<string, string> = {};
   let focused = 0;
   if (settings.projectPlans && typeof settings.projectPlans === "object") {
     for (const [path, raw] of Object.entries(settings.projectPlans).slice(0, 250)) {
@@ -612,6 +746,12 @@ export function normalizeSettings(value: unknown, defaults = defaultSettings()):
       };
     }
   }
+  if (settings.projectLinks && typeof settings.projectLinks === "object") {
+    for (const [path, value] of Object.entries(settings.projectLinks).slice(0, 250)) {
+      const url = safePublicUrl(value);
+      if (isDirectory(path) && url) projectLinks[path] = url;
+    }
+  }
   return {
     projectPath: isDirectory(settings.projectPath) ? settings.projectPath : defaults.projectPath,
     autoCheckTools: typeof settings.autoCheckTools === "boolean" ? settings.autoCheckTools : defaults.autoCheckTools,
@@ -620,6 +760,8 @@ export function normalizeSettings(value: unknown, defaults = defaultSettings()):
     language: normalizeLanguage(settings.language || defaults.language),
     projectRoots: [...new Map(roots.filter(isDirectory).slice(0, 25).map((root) => [root.toLowerCase(), root])).values()],
     projectPlans: plans,
+    projectLinks,
+    hiddenProjects: Array.isArray(settings.hiddenProjects) ? [...new Map(settings.hiddenProjects.filter(isDirectory).slice(0, 250).map((path) => [path.toLowerCase(), path])).values()] : [],
   };
 }
 

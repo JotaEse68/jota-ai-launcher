@@ -4,7 +4,7 @@ import { realpathSync, statSync } from "node:fs";
 import { join, resolve } from "node:path";
 import { pathToFileURL } from "node:url";
 import type { Language, LauncherSettings, ToolAction, ToolId } from "../shared/types";
-import { buildSnapshot, openToolTerminal, readSettings, scanProjectLibrary, writeSettings } from "./services";
+import { buildSnapshot, openToolTerminal, readSettings, scanCleanupDirectory, scanProjectLibrary, writeSettings } from "./services";
 import { mainText, normalizeLanguage } from "./localization";
 
 let mainWindow: BrowserWindow | null = null;
@@ -22,6 +22,22 @@ const ALLOWED_LINK_HOSTS = new Set([
   "github.com",
 ]);
 const approvedDirectories = new Set<string>();
+
+function normalizedPath(value: string): string {
+  const normalized = resolve(value);
+  return process.platform === "win32" ? normalized.toLowerCase() : normalized;
+}
+
+function isSafeHttpsUrl(value: unknown): value is string {
+  if (typeof value !== "string" || value.length > 4_096) return false;
+  try {
+    const parsed = new URL(value);
+    const hostname = parsed.hostname.toLowerCase();
+    return parsed.protocol === "https:" && !parsed.username && !parsed.password && hostname !== "localhost" && hostname !== "0.0.0.0" && hostname !== "127.0.0.1" && hostname !== "::1";
+  } catch {
+    return false;
+  }
+}
 
 function directoryKey(value: unknown): string | null {
   if (typeof value !== "string" || !value || value.length > 32_767) return null;
@@ -100,6 +116,7 @@ function registerIpc(): void {
   const initialSettings = readSettings();
   approveDirectory(initialSettings.projectPath);
   initialSettings.projectRoots.forEach(approveDirectory);
+  initialSettings.hiddenProjects.forEach(approveDirectory);
 
   ipcMain.handle("launcher:scan", async (event, includeLatest: boolean) => {
     assertTrustedSender(event);
@@ -146,6 +163,14 @@ function registerIpc(): void {
     approveDirectory(result.filePaths[0]);
     return result.filePaths[0];
   });
+  ipcMain.handle("launcher:directory:authorize", (event, requestedPath: unknown) => {
+    assertTrustedSender(event);
+    const value = typeof requestedPath === "string" ? requestedPath.trim().replace(/^['"]|['"]$/g, "") : "";
+    const key = directoryKey(value);
+    if (!key) return { ok: false, message: "La carpeta no existe o no se puede leer." };
+    approveDirectory(value);
+    return { ok: true, message: "Carpeta añadida.", path: realpathSync.native(resolve(value)) };
+  });
   ipcMain.handle("launcher:projects:scan", (event) => {
     assertTrustedSender(event);
     const result = scanProjectLibrary(readSettings().projectRoots);
@@ -162,6 +187,31 @@ function registerIpc(): void {
       return { ok: false, message: error instanceof Error ? error.message : "Folder not found" };
     }
   });
+  ipcMain.handle("launcher:cleanup:scan", (event, requestedPath: string) => {
+    assertTrustedSender(event);
+    if (!isApprovedDirectory(requestedPath)) throw new Error("Selecciona o autoriza primero la carpeta que quieres analizar.");
+    return scanCleanupDirectory(requestedPath);
+  });
+  ipcMain.handle("launcher:cleanup:trash", async (event, requestedRoot: string, requestedPaths: unknown, requestedLanguage: Language) => {
+    assertTrustedSender(event);
+    if (!isApprovedDirectory(requestedRoot) || !Array.isArray(requestedPaths) || requestedPaths.length > 100) return { ok: false, message: "Selección no permitida." };
+    const report = scanCleanupDirectory(requestedRoot);
+    const allowed = new Map(report.items.filter((item) => item.recommendation !== "keep").map((item) => [normalizedPath(item.path), item.path]));
+    const targets = [...new Set(requestedPaths.filter((item): item is string => typeof item === "string").map(normalizedPath))]
+      .map((path) => allowed.get(path)).filter((path): path is string => Boolean(path));
+    if (!targets.length) return { ok: false, message: "No hay elementos eliminables seleccionados." };
+    const language = normalizeLanguage(requestedLanguage);
+    const copy = language === "es"
+      ? { title: "Confirmar limpieza", detail: `${targets.length} elemento(s) se enviarán a la papelera. Podrás recuperarlos desde el sistema.`, cancel: "Cancelar", confirm: "Enviar a la papelera", done: "Limpieza completada: {count} elemento(s) enviados a la papelera." }
+      : { title: "Confirm cleanup", detail: `${targets.length} item(s) will be moved to the recycle bin. You can restore them from the system.`, cancel: "Cancel", confirm: "Move to recycle bin", done: "Cleanup complete: {count} item(s) moved to the recycle bin." };
+    const confirmation = await dialog.showMessageBox(mainWindow!, { type: "warning", title: copy.title, message: copy.title, detail: copy.detail, buttons: [copy.cancel, copy.confirm], defaultId: 0, cancelId: 0, noLink: true });
+    if (confirmation.response !== 1) return { ok: false, message: copy.cancel };
+    let removed = 0;
+    for (const target of targets) {
+      try { await shell.trashItem(target); removed += 1; } catch { /* Continue so one locked cache does not stop the rest. */ }
+    }
+    return { ok: removed > 0, message: copy.done.replace("{count}", String(removed)) };
+  });
   ipcMain.handle("launcher:action", (event, tool: ToolId, action: ToolAction, requestedLanguage: Language) => {
     assertTrustedSender(event);
     const language = normalizeLanguage(requestedLanguage);
@@ -170,8 +220,9 @@ function registerIpc(): void {
   });
   ipcMain.handle("launcher:link", async (event, url: string) => {
     assertTrustedSender(event);
+    if (!isSafeHttpsUrl(url)) throw new Error("Enlace no permitido");
     const parsed = new URL(url);
-    if (parsed.protocol !== "https:" || !ALLOWED_LINK_HOSTS.has(parsed.hostname)) throw new Error("Enlace no permitido");
+    if (!ALLOWED_LINK_HOSTS.has(parsed.hostname)) console.log(`[launcher] opening project link: ${parsed.hostname}`);
     await shell.openExternal(parsed.toString());
   });
   ipcMain.handle("launcher:update:self", async (event, requestedLanguage: Language) => {
@@ -188,8 +239,14 @@ function registerIpc(): void {
 }
 
 app.whenReady().then(() => {
-  session.defaultSession.setPermissionCheckHandler(() => false);
-  session.defaultSession.setPermissionRequestHandler((_webContents, _permission, callback) => callback(false));
+  session.defaultSession.setPermissionCheckHandler((webContents, permission, _origin, details) =>
+    Boolean(mainWindow && webContents === mainWindow.webContents && permission === "media" && details.mediaType === "audio"),
+  );
+  session.defaultSession.setPermissionRequestHandler((webContents, permission, callback, details) => {
+    const mediaTypes = "mediaTypes" in details ? details.mediaTypes || [] : [];
+    const audioOnly = mediaTypes.length > 0 && mediaTypes.every((type) => type === "audio");
+    callback(Boolean(mainWindow && webContents === mainWindow.webContents && permission === "media" && audioOnly));
+  });
   registerIpc();
   createWindow();
   const settings = readSettings();
